@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	dbx "github.com/go-ozzo/ozzo-dbx"
@@ -21,6 +23,7 @@ type ServiceContext struct {
 	IIIFManURL    string
 	IIIFURL       string
 	DB            *dbx.DB
+	HTTPClient    *http.Client
 }
 
 // InitializeService sets up the service context for all API handlers
@@ -42,6 +45,26 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	ctx.DB = db
 	db.LogFunc = log.Printf
 	log.Printf("DB Connection established")
+
+	log.Printf("Create HTTP Client...")
+	defaultTransport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 600 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	ctx.HTTPClient = &http.Client{
+		Transport: defaultTransport,
+		Timeout:   10 * time.Second,
+	}
+	log.Printf("HTTP Client created")
 
 	return &ctx
 }
@@ -84,6 +107,44 @@ func (svc *ServiceContext) healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, hcMap)
 }
 
+func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
+	log.Printf("GET API Response from %s, timeout  %.0f sec", url, svc.HTTPClient.Timeout.Seconds())
+	req, _ := http.NewRequest("GET", url, nil)
+
+	startTime := time.Now()
+	resp, rawErr := svc.HTTPClient.Do(req)
+	elapsedNanoSec := time.Since(startTime)
+	elapsedMS := int64(elapsedNanoSec / time.Millisecond)
+
+	if rawErr != nil {
+		status := http.StatusBadRequest
+		errMsg := rawErr.Error()
+		if strings.Contains(rawErr.Error(), "Timeout") {
+			status = http.StatusRequestTimeout
+			errMsg = fmt.Sprintf("%s timed out", url)
+		} else if strings.Contains(rawErr.Error(), "connection refused") {
+			status = http.StatusServiceUnavailable
+			errMsg = fmt.Sprintf("%s refused connection", url)
+		}
+		err := fmt.Errorf("%d: %s", status, errMsg)
+		log.Printf("ERROR: %s : %s. Elapsed Time: %d (ms)", url, err.Error(), elapsedMS)
+		return nil, err
+	} else if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		defer resp.Body.Close()
+		bodyBytes, _ := ioutil.ReadAll(resp.Body)
+		status := resp.StatusCode
+		errMsg := string(bodyBytes)
+		err := fmt.Errorf("%d: %s", status, errMsg)
+		log.Printf("ERROR: %s : %s. Elapsed Time: %d (ms)", url, err.Error(), elapsedMS)
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+	bodyBytes, _ := ioutil.ReadAll(resp.Body)
+	log.Printf("Successful response from %s. Elapsed Time: %d (ms)", url, elapsedMS)
+	return bodyBytes, nil
+}
+
 func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 	ssID := strings.ToLower(c.Param("id"))
 	log.Printf("Get Stylesheet %s", ssID)
@@ -103,11 +164,6 @@ func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 	}
 	if ssID == "fixmarc" {
 		c.File("./xsl/fixMarcErrors_no_include.xsl")
-		return
-	}
-	tgt := fmt.Sprintf("./xslt/%s.xsl", ssID)
-	if _, err := os.Stat(tgt); err == nil {
-		c.File(tgt)
 		return
 	}
 

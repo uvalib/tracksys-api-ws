@@ -48,6 +48,8 @@ func main() {
 	router.GET("/healthcheck", svc.healthCheck)
 	api := router.Group("/api")
 	{
+		api.GET("/manifest/:pid", svc.getManifest)
+
 		api.GET("/published/dpla", svc.getPublishedDPLA)
 		api.GET("/published/virgo", svc.getPublishedVirgo)
 

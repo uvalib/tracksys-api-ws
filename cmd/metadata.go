@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -58,7 +60,13 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	if md.CollectionFacet != nil {
 		out.Collection = *md.CollectionFacet
 	}
-	out.IIIFManURL = fmt.Sprintf("%s/pid/%s", svc.IIIFManURL, md.PID)
+	iiifURL, err := svc.getIIIFManifestURL(md.PID)
+	if err != nil {
+		log.Printf("ERROR: %s", err.Error())
+		c.String(http.StatusNotFound, "iiif manifest not found")
+		return
+	}
+	out.IIIFManURL = iiifURL
 	out.UseURI = md.RightsURI
 
 	c.JSON(http.StatusOK, out)
@@ -80,6 +88,11 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
 		return
 	}
+	if len(mdRecs) == 0 {
+		log.Printf("%s not found", key)
+		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
+		return
+	}
 
 	var out struct {
 		SirsiID string       `json:"sirsiId"`
@@ -92,13 +105,73 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 
 	for _, md := range mdRecs {
 		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: md.RightsURI}
-		item.IIIFManURL = fmt.Sprintf("%s/pid/%s", svc.IIIFManURL, md.PID)
+		iiifURL, err := svc.getIIIFManifestURL(md.PID)
+		if err != nil {
+			log.Printf("ERROR: %s", err.Error())
+			c.String(http.StatusNotFound, "iiif manifest not found")
+			return
+		}
+		item.IIIFManURL = iiifURL
 		item.ExemplarURL = svc.getExemplarThumb(md.ID)
 		item.Uses = getUses(&md)
 		out.Items = append(out.Items, item)
 	}
 
 	c.JSON(http.StatusOK, out)
+}
+
+func (svc *ServiceContext) getManifest(c *gin.Context) {
+	pid := c.Param("pid")
+	q := svc.DB.NewQuery("select id,type,supplemental_system_id from metadata where pid={:pid}")
+	q.Bind(dbx.Params{"pid": pid})
+
+	var dbResp struct {
+		ID                 int64  `db:"id"`
+		Type               string `db:"type"`
+		SupplementalSystem *int64 `db:"supplemental_system_id"`
+	}
+
+	err := q.One(&dbResp)
+	if err != nil {
+		log.Printf("%s is not metadata: %s", pid, err.Error())
+		q := svc.DB.NewQuery("select id from components where pid={:pid}")
+		q.Bind(dbx.Params{"pid": pid})
+		var cID int64
+		err := q.Row(&cID)
+		if err != nil {
+			log.Printf("%s is not a component: %s", pid, err.Error())
+			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
+			return
+		}
+
+		log.Printf("%s is component %d", pid, cID)
+		return
+	}
+	log.Printf("MD %v", dbResp)
+}
+
+func (svc *ServiceContext) getIIIFManifestURL(pid string) (string, error) {
+	log.Printf("Get cached IIIF metadta for %s", pid)
+	url := fmt.Sprintf("%s/pid/%s/exist", svc.IIIFManURL, pid)
+	resp, err := svc.getAPIResponse(url)
+	if err != nil {
+		return "", err
+	}
+	var parsed struct {
+		Exists bool   `json:"exists"`
+		Cached bool   `json:"cached"`
+		URL    string `json:"url"`
+	}
+	err = json.Unmarshal([]byte(resp), &parsed)
+	if err != nil {
+		return "", err
+	}
+
+	if !parsed.Exists || !parsed.Cached {
+		return "", errors.New("manifest not found")
+	}
+	log.Printf("INFO: IIIF manifest cached at %s", parsed.URL)
+	return parsed.URL, nil
 }
 
 func (svc *ServiceContext) getExemplarThumb(mdID int64) string {
