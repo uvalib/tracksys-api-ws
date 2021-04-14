@@ -13,3 +13,5 @@ env.*
 /pkg
 run.sh
 curls.txt
+package/scripts/build.ksh
+package/scripts/shell.ksh
