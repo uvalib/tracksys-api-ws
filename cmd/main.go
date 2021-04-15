@@ -57,6 +57,13 @@ func main() {
 		api.GET("/enriched/sirsi/:key", svc.getEnrichedSirsiMetadata)
 
 		api.GET("/stylesheet/:id", svc.getStyleSheet)
+
+		api.GET("/pid/:pid", svc.getPIDSummary)
+		api.GET("/pid/:pid/rights", svc.getPIDRights)
+		api.GET("/pid/:pid/type", svc.getPIDType)
+		api.GET("/pid/:pid/fulltext", svc.getPIDText)
+
+		api.GET("/metadata/:pid", svc.getMetadata)
 	}
 
 	portStr := fmt.Sprintf(":%d", cfg.Port)
