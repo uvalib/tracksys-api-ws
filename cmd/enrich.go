@@ -22,18 +22,6 @@ type enrichData struct {
 	ExemplarURL string   `json:"thumbnailUrl,omitempty"`
 }
 
-type basicMetadata struct {
-	ID              int64   `db:"id"`
-	PID             string  `db:"pid"`
-	CollectionFacet *string `db:"collection_facet"`
-	RightsURI       string  `db:"uri"`
-	Educational     bool    `db:"educational_use"`
-	Commercial      bool    `db:"commercial_use"`
-	Modification    bool    `db:"modifications"`
-	CallNumber      string  `db:"call_number"`
-	Barcode         string  `db:"barcode"`
-}
-
 func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	key := c.Param("pid")
 	log.Printf("Get enriched other metadata for PID %s", key)
@@ -120,36 +108,6 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-func (svc *ServiceContext) getManifest(c *gin.Context) {
-	pid := c.Param("pid")
-	q := svc.DB.NewQuery("select id,type,supplemental_system_id from metadata where pid={:pid}")
-	q.Bind(dbx.Params{"pid": pid})
-
-	var dbResp struct {
-		ID                 int64  `db:"id"`
-		Type               string `db:"type"`
-		SupplementalSystem *int64 `db:"supplemental_system_id"`
-	}
-
-	err := q.One(&dbResp)
-	if err != nil {
-		log.Printf("%s is not metadata: %s", pid, err.Error())
-		q := svc.DB.NewQuery("select id from components where pid={:pid}")
-		q.Bind(dbx.Params{"pid": pid})
-		var cID int64
-		err := q.Row(&cID)
-		if err != nil {
-			log.Printf("%s is not a component: %s", pid, err.Error())
-			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
-			return
-		}
-
-		log.Printf("%s is component %d", pid, cID)
-		return
-	}
-	log.Printf("MD %v", dbResp)
-}
-
 func (svc *ServiceContext) getIIIFManifestURL(pid string) (string, error) {
 	log.Printf("Get cached IIIF metadta for %s", pid)
 	url := fmt.Sprintf("%s/pid/%s/exist", svc.IIIFManURL, pid)
@@ -194,7 +152,7 @@ func (svc *ServiceContext) getExemplarThumb(mdID int64) string {
 	// If ClonedFromID is set, this MF is cloned. Must use original MF for exemplar
 	if mf.ClonedFromID != nil {
 		q := svc.DB.NewQuery(sql)
-		q.Bind(dbx.Params{"id": mf.ClonedFromID})
+		q.Bind(dbx.Params{"id": *mf.ClonedFromID})
 		err := q.One(&mf)
 		if err != nil {
 			log.Printf("Unable to find original exemplar for %d: %s", mdID, err.Error())
