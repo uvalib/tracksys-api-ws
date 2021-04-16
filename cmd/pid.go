@@ -14,9 +14,11 @@ import (
 
 type metadataSummary struct {
 	ID           int64          `db:"id"`
+	PID          string         `db:"pid"`
 	Type         string         `db:"type"`
 	Title        string         `db:"title"`
 	CallNumber   sql.NullString `db:"call_number"`
+	Barcode      sql.NullString `db:"barcode"`
 	DateDLIngest sql.NullTime   `db:"date_dl_ingest"`
 	Availability sql.NullString `db:"availability"`
 	OCRLangHint  sql.NullString `db:"ocr_language_hint"`

@@ -64,6 +64,7 @@ func main() {
 		api.GET("/pid/:pid/text", svc.getPIDText)
 
 		api.GET("/metadata/:pid", svc.getMetadata)
+		api.GET("/search", svc.searchMetadata)
 	}
 
 	portStr := fmt.Sprintf(":%d", cfg.Port)
