@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,18 @@ import (
 	"github.com/gin-gonic/gin"
 	dbx "github.com/go-ozzo/ozzo-dbx"
 )
+
+type basicMetadata struct {
+	ID              int64          `db:"id"`
+	PID             string         `db:"pid"`
+	CollectionFacet sql.NullString `db:"collection_facet"`
+	RightsURI       string         `db:"uri"`
+	Educational     bool           `db:"educational_use"`
+	Commercial      bool           `db:"commercial_use"`
+	Modification    bool           `db:"modifications"`
+	CallNumber      string         `db:"call_number"`
+	Barcode         string         `db:"barcode"`
+}
 
 type enrichData struct {
 	PID         string   `json:"pid"`
@@ -45,9 +58,7 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	out.PDF = svc.PDFServiceURL
 	out.Uses = getUses(&md)
 	out.ExemplarURL = svc.getExemplarThumb(md.ID)
-	if md.CollectionFacet != nil {
-		out.Collection = *md.CollectionFacet
-	}
+	out.Collection = md.CollectionFacet.String
 	iiifURL, err := svc.getIIIFManifestURL(md.PID)
 	if err != nil {
 		log.Printf("ERROR: %s", err.Error())
