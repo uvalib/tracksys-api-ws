@@ -26,8 +26,9 @@ type masterFileSummary struct {
 	ID         int64          `db:"id"`
 	Title      sql.NullString `db:"title"`
 	Filename   sql.NullString `db:"filename"`
-	TextSource sql.NullString `db:"text_source"`
-	UnitID     int64          `db:"unit_id"`
+	TextSource sql.NullInt64  `db:"text_source"`
+	Text       sql.NullString `db:"transcription_text"`
+	ParentPID  sql.NullString `db:"parent_pid"`
 }
 
 type componentSummary struct {
@@ -111,13 +112,22 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	}
 
 	// try master file...
-	sql = `select id,title,filename,text_source,unit_id from master_files where pid={:pid}`
+	sql = `select f.id,f.title,filename,text_source,transcription_text,m.pid as parent_pid
+		from master_files f left outer join metadata m on m.id = f.metadata_id where f.pid={:pid}`
 	q = svc.DB.NewQuery(sql)
 	q.Bind(dbx.Params{"pid": pid})
 	var mfResp masterFileSummary
 	err = q.One(&mfResp)
 	if err == nil {
-		log.Printf("MASTEFILE: %+v", mfResp)
+		out := pidSummary{ID: mfResp.ID, PID: pid, Title: mfResp.Title.String, Filename: mfResp.Filename.String}
+		if mfResp.Text.Valid && mfResp.Text.String != "" {
+			if mfResp.TextSource.Valid && mfResp.TextSource.Int64 == 2 {
+				out.HasTranscription = true
+			} else {
+				out.HasOCR = true
+			}
+		}
+		c.JSON(http.StatusOK, out)
 		return
 	}
 
