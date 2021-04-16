@@ -26,6 +26,12 @@ type ServiceContext struct {
 	HTTPClient    *http.Client
 }
 
+type cloneData struct {
+	ID       int64  `db:"id"`
+	PID      string `json:"pid"`
+	Filename string `json:"filename"`
+}
+
 // InitializeService sets up the service context for all API handlers
 func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	ctx := ServiceContext{Version: version,
@@ -105,6 +111,18 @@ func (svc *ServiceContext) healthCheck(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, hcMap)
+}
+
+func (svc *ServiceContext) getOriginalMasterFile(mfID int64) (*cloneData, error) {
+	log.Printf("Lookup original masterfile %d for clone", mfID)
+	q := svc.DB.NewQuery("select id,pid,filename from master_files where id={:id}")
+	q.Bind(dbx.Params{"id": mfID})
+	var clonedFrom cloneData
+	err := q.One(&clonedFrom)
+	if err != nil {
+		return nil, err
+	}
+	return &clonedFrom, nil
 }
 
 func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
