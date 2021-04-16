@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -11,13 +12,14 @@ import (
 )
 
 type metadataSummary struct {
-	ID            int64          `db:"id"`
-	Type          string         `db:"type"`
-	Title         string         `db:"title"`
-	AvailbilityID sql.NullInt64  `db:"availability_policy_id"`
-	OCRLangHint   sql.NullString `db:"ocr_language_hint"`
-	OCRHint       sql.NullString `db:"ocr_hint"`
-	OCRCandidate  sql.NullBool   `db:"ocr_candidate"`
+	ID           int64          `db:"id"`
+	Type         string         `db:"type"`
+	Title        string         `db:"title"`
+	DateDLIngest sql.NullTime   `db:"date_dl_ingest"`
+	Availability sql.NullString `db:"availability"`
+	OCRLangHint  sql.NullString `db:"ocr_language_hint"`
+	OCRHint      sql.NullString `db:"ocr_hint"`
+	OCRCandidate sql.NullBool   `db:"ocr_candidate"`
 }
 
 type masterFileSummary struct {
@@ -29,28 +31,34 @@ type masterFileSummary struct {
 }
 
 type componentSummary struct {
-	ID    int64          `db:"id"`
-	Title sql.NullString `db:"title"`
+	ID           int64          `db:"id"`
+	Title        sql.NullString `db:"title"`
+	DateDLIngest sql.NullTime   `db:"date_dl_ingest"`
+}
+
+type textInfo struct {
+	HasOCR           bool `json:"has_ocr"`
+	HasTranscription bool `json:"has_transcription"`
 }
 
 type ocrSummary struct {
-	OCRHint          string `json:"ocr_hint,omitempty"`
-	OCRLanguageHint  string `json:"ocr_language_hint,omitempty"`
-	OCRCandidate     bool   `json:"ocr_candidate,omitempty"`
-	HasOCR           bool   `json:"has_ocr,omitempty"`
-	HasTranscription bool   `json:"has_transcription,omitempty"`
+	OCRHint         string `json:"ocr_hint,omitempty"`
+	OCRLanguageHint string `json:"ocr_language_hint,omitempty"`
+	OCRCandidate    bool   `json:"ocr_candidate"`
+	textInfo
 }
 
 type pidSummary struct {
-	ID         int64      `json:"id"`
-	PID        string     `json:"pid"`
-	Type       string     `json:"type"`
-	Title      string     `json:"title,omitempty"`
-	Filename   string     `json:"filename,omitempty"`
-	ParentPID  string     `json:"parent_metadata_pid,omitempty"`
-	TextSource string     `json:"text_source,omitempty"`
-	ClonedFrom *cloneData `json:"cloned_from,omitempty"`
-	*ocrSummary
+	ID           int64      `json:"id"`
+	PID          string     `json:"pid"`
+	Type         string     `json:"type"`
+	Title        string     `json:"title,omitempty"`
+	Filename     string     `json:"filename,omitempty"`
+	Availability string     `json:"availability_policy,omitempty"`
+	ParentPID    string     `json:"parent_metadata_pid,omitempty"`
+	TextSource   string     `json:"text_source,omitempty"`
+	ClonedFrom   *cloneData `json:"cloned_from,omitempty"`
+	ocrSummary
 }
 
 func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
@@ -58,14 +66,47 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	log.Printf("Get summary for %s", pid)
 
 	// First try metadata...
-	sql := `select m.id,type,title,availability_policy_id,ocr_language_hint,o.name as ocr_hint,ocr_candidate
-		from metadata m left outer join ocr_hints o on o.id = m.ocr_hint_id where pid={:pid}`
+	sql := `select m.id,type,title,a.name as availability,date_dl_ingest,
+		ocr_language_hint,o.name as ocr_hint,ocr_candidate
+		from metadata m left outer join ocr_hints o on o.id = m.ocr_hint_id
+		left outer join availability_policies a on a.id = availability_policy_id
+		where m.pid={:pid}`
 	q := svc.DB.NewQuery(sql)
 	q.Bind(dbx.Params{"pid": pid})
 	var mdResp metadataSummary
 	err := q.One(&mdResp)
 	if err == nil {
-		log.Printf("METADATA: %+v", mdResp)
+		out := pidSummary{ID: mdResp.ID, PID: pid, Title: mdResp.Title, Availability: "private",
+			Type: "sirsi_metadata"}
+		if mdResp.Type == "XmlMetadata" {
+			out.Type = "xml_metadata"
+		} else if mdResp.Type == "ExternalMetadata" {
+			out.Type = "external_metadata"
+		}
+		if mdResp.Availability.Valid {
+			out.Availability = strings.ToLower(strings.Split(mdResp.Availability.String, " ")[0])
+		}
+		if mdResp.OCRLangHint.Valid {
+			out.OCRLanguageHint = mdResp.OCRLangHint.String
+		}
+		if mdResp.OCRHint.Valid {
+			out.OCRHint = mdResp.OCRHint.String
+			out.OCRCandidate = mdResp.OCRCandidate.Bool
+		}
+
+		if mdResp.DateDLIngest.Valid {
+			q = svc.DB.NewQuery("select id from units where include_in_dl=1 and metadata_id={:id}")
+			q.Bind(dbx.Params{"id": mdResp.ID})
+			var unitID int64
+			err = q.Row(&unitID)
+			if err == nil {
+				txtInfo := svc.getTextInfo(unitID, "unit_id")
+				out.HasOCR = txtInfo.HasOCR
+				out.HasTranscription = txtInfo.HasTranscription
+			}
+		}
+
+		c.JSON(http.StatusOK, out)
 		return
 	}
 
@@ -81,17 +122,45 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	}
 
 	// try component...
-	q = svc.DB.NewQuery("select id,title from components where pid={:pid}")
+	q = svc.DB.NewQuery("select id,title,date_dl_ingest from components where pid={:pid}")
 	q.Bind(dbx.Params{"pid": pid})
 	var cResp componentSummary
 	err = q.One(&cResp)
 	if err == nil {
 		out := pidSummary{ID: cResp.ID, PID: pid, Title: cResp.Title.String}
+		if cResp.DateDLIngest.Valid {
+			txtInfo := svc.getTextInfo(cResp.ID, "component_id")
+			out.HasOCR = txtInfo.HasOCR
+			out.HasTranscription = txtInfo.HasTranscription
+		}
 		c.JSON(http.StatusOK, out)
 		return
 	}
 
 	c.String(http.StatusNotFound, "not found")
+}
+
+func (svc *ServiceContext) getTextInfo(ID int64, field string) textInfo {
+	sqlQ := fmt.Sprintf(`select transcription_text, text_source from master_files where
+	transcription_text is not null and transcription_text <> '' and %s={:id}
+	limit 1`, field)
+	q := svc.DB.NewQuery(sqlQ)
+	q.Bind(dbx.Params{"id": ID})
+	var resp struct {
+		Text   sql.NullString `db:"transcription_text"`
+		Source sql.NullInt64  `db:"text_source"`
+	}
+	err := q.One(&resp)
+	if err != nil {
+		return textInfo{}
+	}
+	if !resp.Source.Valid {
+		return textInfo{HasOCR: true}
+	}
+	if resp.Source.Int64 == 2 {
+		return textInfo{HasTranscription: true}
+	}
+	return textInfo{HasOCR: true}
 }
 
 func (svc *ServiceContext) getPIDText(c *gin.Context) {
@@ -160,8 +229,8 @@ func (svc *ServiceContext) getPIDRights(c *gin.Context) {
 	q := svc.DB.NewQuery(`select id,availability_policy_id from metadata where pid={:pid}`)
 	q.Bind(dbx.Params{"pid": pid})
 	var resp struct {
-		ID      int64  `db:"id"`
-		AvailID *int64 `db:"availability_policy_id"`
+		ID      int64         `db:"id"`
+		AvailID sql.NullInt64 `db:"availability_policy_id"`
 	}
 	err := q.One(&resp)
 	if err != nil {
@@ -179,7 +248,7 @@ func (svc *ServiceContext) getPIDRights(c *gin.Context) {
 		}
 	}
 
-	if resp.AvailID == nil {
+	if !resp.AvailID.Valid {
 		c.String(http.StatusOK, "private")
 		return
 	}
