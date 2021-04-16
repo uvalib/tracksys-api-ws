@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,35 +10,17 @@ import (
 	dbx "github.com/go-ozzo/ozzo-dbx"
 )
 
-type basicMetadata struct {
-	ID              int64   `db:"id"`
-	PID             string  `db:"pid"`
-	CollectionFacet *string `db:"collection_facet"`
-	RightsURI       string  `db:"uri"`
-	Educational     bool    `db:"educational_use"`
-	Commercial      bool    `db:"commercial_use"`
-	Modification    bool    `db:"modifications"`
-	CallNumber      string  `db:"call_number"`
-	Barcode         string  `db:"barcode"`
-}
-
 type masterFileData struct {
-	ID           int64   `db:"id"`
-	PID          string  `db:"pid"`
-	Filename     string  `db:"filename"`
-	Width        int     `db:"width"`
-	Height       int     `db:"height"`
-	Title        *string `db:"title"`
-	Description  *string `db:"description"`
-	TextSource   *string `db:"text_source"`
-	Orientation  int     `db:"orientation"`
-	ClonedFromID *int64  `db:"original_mf_id"`
-}
-
-type cloneData struct {
-	ID       int64  `db:"id"`
-	PID      string `json:"pid"`
-	Filename string `json:"filename"`
+	ID           int64          `db:"id"`
+	PID          string         `db:"pid"`
+	Filename     string         `db:"filename"`
+	Width        int            `db:"width"`
+	Height       int            `db:"height"`
+	Title        sql.NullString `db:"title"`
+	Description  sql.NullString `db:"description"`
+	TextSource   sql.NullString `db:"text_source"`
+	Orientation  int            `db:"orientation"`
+	ClonedFromID sql.NullInt64  `db:"original_mf_id"`
 }
 
 type manifestData struct {
@@ -142,30 +125,19 @@ func (svc *ServiceContext) generateManifest(masterFiles *[]masterFileData) (*[]m
 	out := make([]manifestData, 0)
 	for _, mf := range *masterFiles {
 		item := manifestData{ID: mf.ID, PID: mf.PID, Filename: mf.Filename,
+			Title: mf.Title.String, Description: mf.Description.String, TextSource: mf.TextSource.String,
 			Width: mf.Width, Height: mf.Height, Orientation: "normal"}
-		if mf.Title != nil {
-			item.Title = *mf.Title
-		}
-		if mf.Description != nil {
-			item.Description = *mf.Description
-		}
-		if mf.TextSource != nil {
-			item.TextSource = *mf.TextSource
-		}
 
 		// convert rails enum to string
 		item.Orientation = orientations[mf.Orientation]
 
 		// get original info if this is a clone
-		if mf.ClonedFromID != nil {
-			q := svc.DB.NewQuery("select id,pid,filename from master_files where id={:id}")
-			q.Bind(dbx.Params{"id": *mf.ClonedFromID})
-			var clone cloneData
-			err := q.One(&clone)
+		if mf.ClonedFromID.Valid {
+			orig, err := svc.getOriginalMasterFile(mf.ClonedFromID.Int64)
 			if err != nil {
 				return nil, err
 			}
-			item.ClonedFrom = &clone
+			item.ClonedFrom = orig
 		}
 
 		out = append(out, item)
