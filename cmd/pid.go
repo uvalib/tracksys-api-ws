@@ -16,6 +16,7 @@ type metadataSummary struct {
 	ID           int64          `db:"id"`
 	Type         string         `db:"type"`
 	Title        string         `db:"title"`
+	CallNumber   sql.NullString `db:"call_number"`
 	DateDLIngest sql.NullTime   `db:"date_dl_ingest"`
 	Availability sql.NullString `db:"availability"`
 	OCRLangHint  sql.NullString `db:"ocr_language_hint"`
@@ -183,8 +184,10 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 	}
 	if !(txtType == "transcription" || txtType == "title" || txtType == "description") {
 		c.String(http.StatusBadRequest, "invalid text type")
+		return
 	}
 	log.Printf("Get full text for %s", pid)
+	spacesRegex := regexp.MustCompile(`\s+`)
 
 	sql := `select id,title,description,transcription_text from master_files where pid={:pid}`
 	q := svc.DB.NewQuery(sql)
@@ -192,20 +195,73 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 	var mfResp masterFileSummary
 	err := q.One(&mfResp)
 	if err == nil {
-		regexp := regexp.MustCompile(`\s+`)
 		out := mfResp.Text.String
 		if txtType == "title" {
 			out = mfResp.Title.String
 		} else if txtType == "description" {
 			out = mfResp.Description.String
 		}
-		c.String(http.StatusOK, regexp.ReplaceAllString(out, " "))
+		c.String(http.StatusOK, spacesRegex.ReplaceAllString(out, " "))
 		return
 	}
 
 	// Try a metadata record...
+	sql = `select id,type,title,call_number from metadata where pid={:pid}`
+	q = svc.DB.NewQuery(sql)
+	q.Bind(dbx.Params{"pid": pid})
+	var mdResp metadataSummary
+	err = q.One(&mdResp)
+	if err == nil {
+		unitID := c.Query("unit")
+		if unitID == "" {
+			sql := `select id from units where include_in_dl =1 and metadata_id={:id} limit 1`
+			q := svc.DB.NewQuery(sql)
+			q.Bind(dbx.Params{"id": mdResp.ID})
+			var uID int64
+			err := q.Row(&uID)
+			if err != nil {
+				log.Printf("Unable to find unit for text api call: %s", err.Error())
+				c.String(http.StatusNotFound, "not found")
+				return
+			}
+			unitID = fmt.Sprintf("%d", uID)
+		}
+		pgBreak := c.Query("pagebreak")
+		out := ""
+		if pgBreak != "" {
+			if mdResp.Type == "SirsiMetadata" {
+				out += fmt.Sprintf("[[ %s - %s ]]", mdResp.Title, mdResp.CallNumber.String)
+			} else {
+				out += fmt.Sprintf("[[ %s ]]\n", mdResp.Title)
+			}
+		}
 
-	c.String(http.StatusNotImplemented, "not yet")
+		sql := `select id,title,description,transcription_text from master_files where unit_id={:uid}`
+		q := svc.DB.NewQuery(sql)
+		q.Bind(dbx.Params{"uid": unitID})
+		var mfResp []masterFileSummary
+		err := q.All(&mfResp)
+		if err != nil {
+			log.Printf("Unable to find master files for text api call: %s", err.Error())
+			c.String(http.StatusNotFound, "not found")
+			return
+		}
+		for pg, mf := range mfResp {
+			if pgBreak != "" {
+				out += fmt.Sprintf("\n\n[ PAGE %d ]\n\n", (pg + 1))
+			} else {
+				out += "\n"
+			}
+			out += spacesRegex.ReplaceAllString(mf.Text.String, " ")
+		}
+		if pgBreak != "" {
+			out += "\n\n[ END ]\n\n"
+		}
+		c.String(http.StatusOK, out)
+		return
+	}
+
+	c.String(http.StatusNotFound, "not found")
 }
 
 func (svc *ServiceContext) getPIDType(c *gin.Context) {
