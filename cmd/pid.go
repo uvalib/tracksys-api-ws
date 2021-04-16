@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -23,12 +24,13 @@ type metadataSummary struct {
 }
 
 type masterFileSummary struct {
-	ID         int64          `db:"id"`
-	Title      sql.NullString `db:"title"`
-	Filename   sql.NullString `db:"filename"`
-	TextSource sql.NullInt64  `db:"text_source"`
-	Text       sql.NullString `db:"transcription_text"`
-	ParentPID  sql.NullString `db:"parent_pid"`
+	ID          int64          `db:"id"`
+	Title       sql.NullString `db:"title"`
+	Description sql.NullString `db:"description"`
+	Filename    sql.NullString `db:"filename"`
+	TextSource  sql.NullInt64  `db:"text_source"`
+	Text        sql.NullString `db:"transcription_text"`
+	ParentPID   sql.NullString `db:"parent_pid"`
 }
 
 type componentSummary struct {
@@ -119,7 +121,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	var mfResp masterFileSummary
 	err = q.One(&mfResp)
 	if err == nil {
-		out := pidSummary{ID: mfResp.ID, PID: pid, Title: mfResp.Title.String, Filename: mfResp.Filename.String}
+		out := pidSummary{ID: mfResp.ID, PID: pid, Type: "master_file", Title: mfResp.Title.String, Filename: mfResp.Filename.String}
 		if mfResp.Text.Valid && mfResp.Text.String != "" {
 			if mfResp.TextSource.Valid && mfResp.TextSource.Int64 == 2 {
 				out.HasTranscription = true
@@ -137,7 +139,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	var cResp componentSummary
 	err = q.One(&cResp)
 	if err == nil {
-		out := pidSummary{ID: cResp.ID, PID: pid, Title: cResp.Title.String}
+		out := pidSummary{ID: cResp.ID, PID: pid, Title: cResp.Title.String, Type: "component"}
 		if cResp.DateDLIngest.Valid {
 			txtInfo := svc.getTextInfo(cResp.ID, "component_id")
 			out.HasOCR = txtInfo.HasOCR
@@ -175,7 +177,34 @@ func (svc *ServiceContext) getTextInfo(ID int64, field string) textInfo {
 
 func (svc *ServiceContext) getPIDText(c *gin.Context) {
 	pid := c.Param("pid")
+	txtType := c.Query("type")
+	if txtType == "" {
+		txtType = "transcription"
+	}
+	if !(txtType == "transcription" || txtType == "title" || txtType == "description") {
+		c.String(http.StatusBadRequest, "invalid text type")
+	}
 	log.Printf("Get full text for %s", pid)
+
+	sql := `select id,title,description,transcription_text from master_files where pid={:pid}`
+	q := svc.DB.NewQuery(sql)
+	q.Bind(dbx.Params{"pid": pid})
+	var mfResp masterFileSummary
+	err := q.One(&mfResp)
+	if err == nil {
+		regexp := regexp.MustCompile(`\s+`)
+		out := mfResp.Text.String
+		if txtType == "title" {
+			out = mfResp.Title.String
+		} else if txtType == "description" {
+			out = mfResp.Description.String
+		}
+		c.String(http.StatusOK, regexp.ReplaceAllString(out, " "))
+		return
+	}
+
+	// Try a metadata record...
+
 	c.String(http.StatusNotImplemented, "not yet")
 }
 
@@ -233,7 +262,7 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 	c.String(http.StatusNotFound, "not found")
 }
 
-func (svc *ServiceContext) getPIDRights(c *gin.Context) {
+func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 	pid := c.Param("pid")
 	log.Printf("Get rights for %s", pid)
 	q := svc.DB.NewQuery(`select id,availability_policy_id from metadata where pid={:pid}`)

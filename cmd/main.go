@@ -59,9 +59,9 @@ func main() {
 		api.GET("/stylesheet/:id", svc.getStyleSheet)
 
 		api.GET("/pid/:pid", svc.getPIDSummary)
-		api.GET("/pid/:pid/rights", svc.getPIDRights)
+		api.GET("/pid/:pid/access", svc.getPIDAccess)
 		api.GET("/pid/:pid/type", svc.getPIDType)
-		api.GET("/pid/:pid/fulltext", svc.getPIDText)
+		api.GET("/pid/:pid/text", svc.getPIDText)
 
 		api.GET("/metadata/:pid", svc.getMetadata)
 	}
