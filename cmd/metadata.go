@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/xml"
 	"fmt"
 	"log"
 	"net/http"
@@ -94,13 +95,20 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		return
 	}
 
-	if mdType == "marc" {
-		c.String(http.StatusOK, "marc")
-		return
-	}
-
-	if mdType == "fixedmarc" {
-		c.String(http.StatusOK, "fixedmarc")
+	if mdType == "marc" || mdType == "fixedmarc" {
+		if resp.CatalogKey.Valid {
+			url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, resp.CatalogKey.String)
+			respStr, err := svc.getAPIResponse(url)
+			if err != nil {
+				c.String(http.StatusNotFound, "not found")
+			} else {
+				var out interface{}
+				xml.Unmarshal(respStr, &out)
+				c.XML(http.StatusOK, out)
+			}
+		} else {
+			c.String(http.StatusNotFound, "not found")
+		}
 		return
 	}
 

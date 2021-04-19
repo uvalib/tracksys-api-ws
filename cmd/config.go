@@ -18,6 +18,7 @@ type DBConfig struct {
 type ServiceConfig struct {
 	Port          int
 	DB            DBConfig
+	SirsiURL      string
 	SaxonURL      string
 	PDFServiceURL string
 	IIIFManURL    string
@@ -30,6 +31,7 @@ func LoadConfiguration() *ServiceConfig {
 	log.Printf("Loading configuration...")
 	var cfg ServiceConfig
 	flag.IntVar(&cfg.Port, "port", 8080, "API service port (default 8080)")
+	flag.StringVar(&cfg.SirsiURL, "sirsi", "https://ils.lib.virginia.edu/uhtbin", "Sirsi URL")
 	flag.StringVar(&cfg.SaxonURL, "saxon", "https://saxon-servlet.internal.lib.virginia.edu/SaxonServlet", "Saxon servlet URL")
 	flag.StringVar(&cfg.PDFServiceURL, "pdf", "https://pdfservice.lib.virginia.edu/pdf", "PDF service URL")
 	flag.StringVar(&cfg.IIIFManURL, "iiifman", "https://iiifman.lib.virginia.edu", "IIIF Manifest service URL")
@@ -58,6 +60,7 @@ func LoadConfiguration() *ServiceConfig {
 	}
 
 	log.Printf("[CONFIG] port          = [%d]", cfg.Port)
+	log.Printf("[CONFIG] sirsi         = [%s]", cfg.SirsiURL)
 	log.Printf("[CONFIG] saxon         = [%s]", cfg.SaxonURL)
 	log.Printf("[CONFIG] pdf           = [%s]", cfg.PDFServiceURL)
 	log.Printf("[CONFIG] iiifman       = [%s]", cfg.IIIFManURL)

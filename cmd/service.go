@@ -18,6 +18,7 @@ import (
 // ServiceContext contains common data used by all handlers
 type ServiceContext struct {
 	Version       string
+	SirsiURL      string
 	SaxonURL      string
 	PDFServiceURL string
 	IIIFManURL    string
@@ -35,6 +36,7 @@ type cloneData struct {
 // InitializeService sets up the service context for all API handlers
 func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	ctx := ServiceContext{Version: version,
+		SirsiURL:      cfg.SirsiURL,
 		SaxonURL:      cfg.SaxonURL,
 		PDFServiceURL: cfg.PDFServiceURL,
 		IIIFManURL:    cfg.IIIFManURL,
