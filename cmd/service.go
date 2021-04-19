@@ -125,6 +125,46 @@ func (svc *ServiceContext) getOriginalMasterFile(mfID int64) (*cloneData, error)
 	return &clonedFrom, nil
 }
 
+func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
+	exemplarURL := ""
+	sql := `select id,pid,original_mf_id from master_files where metadata_id={:id} and exemplar=1 limit 1`
+	q := svc.DB.NewQuery(sql)
+	q.Bind(dbx.Params{"id": mdID})
+
+	var mf struct {
+		ID           int64  `db:"id"`
+		PID          string `db:"pid"`
+		ClonedFromID *int64 `db:"original_mf_id"`
+	}
+	err := q.One(&mf)
+	if err != nil {
+		log.Printf("Unable to find exemplar for %d: %s", mdID, err.Error())
+		return exemplarURL
+	}
+
+	// If ClonedFromID is set, this MF is cloned. Must use original MF for exemplar
+	if mf.ClonedFromID != nil {
+		q := svc.DB.NewQuery(sql)
+		q.Bind(dbx.Params{"id": *mf.ClonedFromID})
+		err := q.One(&mf)
+		if err != nil {
+			log.Printf("Unable to find original exemplar for %d: %s", mdID, err.Error())
+			return exemplarURL
+		}
+	}
+
+	// orientation is enum type: none: 0, flip_y_axis: 1, rotate90: 2, rotate180: 3, rotate270
+	sql = `select orientation from image_tech_meta where master_file_id={:id} limit 1`
+	q = svc.DB.NewQuery(sql)
+	orientationID := 0
+	rotations := []string{"0", "!0", "90", "180", "270"}
+	q.Bind(dbx.Params{"id": mf.ID})
+	q.Row(&orientationID)
+	exemplarURL = fmt.Sprintf("%s/%s/full/!125,200/%s/default.jpg", svc.IIIFURL, mf.PID, rotations[orientationID])
+
+	return exemplarURL
+}
+
 func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
 	log.Printf("GET API Response from %s, timeout  %.0f sec", url, svc.HTTPClient.Timeout.Seconds())
 	req, _ := http.NewRequest("GET", url, nil)

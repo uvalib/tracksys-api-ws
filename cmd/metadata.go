@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -55,5 +56,80 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		return
 	}
 	log.Printf("Get %s metadata for %s", mdType, pid)
-	c.String(http.StatusNotImplemented, "not yet")
+
+	// first, see if it is a masterfile pid and pull the metadata pid...
+	qSQL := `select m.pid from master_files f left outer join metadata m
+		on m.id = f.metadata_id where f.pid={:pid}`
+	q := svc.DB.NewQuery(qSQL)
+	q.Bind(dbx.Params{"pid": pid})
+	var newPID string
+	err := q.Row(&newPID)
+	if err == nil {
+		log.Printf("%s is a master file. Metadata PID=%s", pid, newPID)
+		pid = newPID
+	}
+
+	// Now get metadata details
+	qSQL = `select m.id,pid,type,title,call_number,catalog_key,creator_name,
+		u.uri as rights_uri, u.statement as rights from metadata m
+		left outer join use_rights u on u.id = m.use_right_id
+		where pid={:pid}`
+	q = svc.DB.NewQuery(qSQL)
+	q.Bind(dbx.Params{"pid": pid})
+	var resp struct {
+		ID         int64          `db:"id"`
+		PID        string         `db:"pid"`
+		Type       string         `db:"type"`
+		Title      string         `db:"title"`
+		CallNumber sql.NullString `db:"call_number"`
+		CatalogKey sql.NullString `db:"catalog_key"`
+		Creator    sql.NullString `db:"creator_name"`
+		RightsURI  string         `db:"rights_uri"`
+		Rights     string         `db:"rights"`
+	}
+	err = q.One(&resp)
+	if err != nil {
+		log.Printf("ERROR: %s not found: %s", pid, err.Error())
+		c.String(http.StatusNotFound, "not found")
+		return
+	}
+
+	if mdType == "marc" {
+		c.String(http.StatusOK, "marc")
+		return
+	}
+
+	if mdType == "fixedmarc" {
+		c.String(http.StatusOK, "fixedmarc")
+		return
+	}
+
+	exemplarURL := svc.getExemplarThumbURL(resp.ID)
+
+	if mdType == "brief" {
+		type jsonOut struct {
+			PID             string `json:"pid"`
+			Title           string `json:"title"`
+			CallNumber      string `json:"callNumber,omitempty"`
+			CatalogKey      string `json:"catalogKey,omitempty"`
+			Creator         string `json:"creator,omitempty"`
+			RightsURI       string `json:"rights"`
+			RightsStatement string `json:"rightsStatement"`
+			ExemplarURL     string `json:"exemplar"`
+		}
+		out := jsonOut{PID: resp.PID, Title: resp.Title, CallNumber: resp.CallNumber.String,
+			CatalogKey: resp.CatalogKey.String, Creator: resp.Creator.String, RightsURI: resp.RightsURI}
+		out.ExemplarURL = exemplarURL
+		rs := "Find more information about permission to use the library's materials at https://www.library.virginia.edu/policies/use-of-materials."
+		out.RightsStatement = fmt.Sprintf("%s\n%s", resp.Rights, rs)
+		c.JSON(http.StatusOK, out)
+		return
+	}
+
+	if mdType == "mods" {
+		c.String(http.StatusOK, "mods")
+		return
+	}
+
+	c.String(http.StatusBadRequest, "invalid metadata type")
 }

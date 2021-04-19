@@ -57,7 +57,7 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	out.PID = md.PID
 	out.PDF = svc.PDFServiceURL
 	out.Uses = getUses(&md)
-	out.ExemplarURL = svc.getExemplarThumb(md.ID)
+	out.ExemplarURL = svc.getExemplarThumbURL(md.ID)
 	out.Collection = md.CollectionFacet.String
 	iiifURL, err := svc.getIIIFManifestURL(md.PID)
 	if err != nil {
@@ -111,7 +111,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 			return
 		}
 		item.IIIFManURL = iiifURL
-		item.ExemplarURL = svc.getExemplarThumb(md.ID)
+		item.ExemplarURL = svc.getExemplarThumbURL(md.ID)
 		item.Uses = getUses(&md)
 		out.Items = append(out.Items, item)
 	}
@@ -141,46 +141,6 @@ func (svc *ServiceContext) getIIIFManifestURL(pid string) (string, error) {
 	}
 	log.Printf("INFO: IIIF manifest cached at %s", parsed.URL)
 	return parsed.URL, nil
-}
-
-func (svc *ServiceContext) getExemplarThumb(mdID int64) string {
-	exemplarURL := ""
-	sql := `select id,pid,original_mf_id from master_files where metadata_id={:id} and exemplar=1 limit 1`
-	q := svc.DB.NewQuery(sql)
-	q.Bind(dbx.Params{"id": mdID})
-
-	var mf struct {
-		ID           int64  `db:"id"`
-		PID          string `db:"pid"`
-		ClonedFromID *int64 `db:"original_mf_id"`
-	}
-	err := q.One(&mf)
-	if err != nil {
-		log.Printf("Unable to find exemplar for %d: %s", mdID, err.Error())
-		return exemplarURL
-	}
-
-	// If ClonedFromID is set, this MF is cloned. Must use original MF for exemplar
-	if mf.ClonedFromID != nil {
-		q := svc.DB.NewQuery(sql)
-		q.Bind(dbx.Params{"id": *mf.ClonedFromID})
-		err := q.One(&mf)
-		if err != nil {
-			log.Printf("Unable to find original exemplar for %d: %s", mdID, err.Error())
-			return exemplarURL
-		}
-	}
-
-	// orientation is enum type: none: 0, flip_y_axis: 1, rotate90: 2, rotate180: 3, rotate270
-	sql = `select orientation from image_tech_meta where master_file_id={:id} limit 1`
-	q = svc.DB.NewQuery(sql)
-	orientationID := 0
-	rotations := []string{"0", "!0", "90", "180", "270"}
-	q.Bind(dbx.Params{"id": mf.ID})
-	q.Row(&orientationID)
-	exemplarURL = fmt.Sprintf("%s/%s/full/!125,200/%s/default.jpg", svc.IIIFURL, mf.PID, rotations[orientationID])
-
-	return exemplarURL
 }
 
 func getUses(md *basicMetadata) []string {
