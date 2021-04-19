@@ -170,6 +170,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
 	log.Printf("GET API Response from %s, timeout  %.0f sec", url, svc.HTTPClient.Timeout.Seconds())
 	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.128 Safari/537.36")
 
 	startTime := time.Now()
 	resp, rawErr := svc.HTTPClient.Do(req)

@@ -2,10 +2,10 @@ package main
 
 import (
 	"database/sql"
-	"encoding/xml"
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 	dbx "github.com/go-ozzo/ozzo-dbx"
@@ -97,14 +97,15 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 
 	if mdType == "marc" || mdType == "fixedmarc" {
 		if resp.CatalogKey.Valid {
-			url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, resp.CatalogKey.String)
+			re := regexp.MustCompile(`^u`)
+			cKey := re.ReplaceAll([]byte(resp.CatalogKey.String), []byte(""))
+			url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
 			respStr, err := svc.getAPIResponse(url)
 			if err != nil {
-				c.String(http.StatusNotFound, "not found")
+				c.String(http.StatusNotFound, err.Error())
 			} else {
-				var out interface{}
-				xml.Unmarshal(respStr, &out)
-				c.XML(http.StatusOK, out)
+				c.Header("Content-Type", "text/xml")
+				c.String(http.StatusOK, string(respStr))
 			}
 		} else {
 			c.String(http.StatusNotFound, "not found")
