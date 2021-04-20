@@ -6,7 +6,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 // ServiceContext contains common data used by all handlers
 type ServiceContext struct {
 	Version       string
+	APIURL        string
 	SirsiURL      string
 	SaxonURL      string
 	PDFServiceURL string
@@ -25,6 +28,7 @@ type ServiceContext struct {
 	IIIFURL       string
 	DB            *dbx.DB
 	HTTPClient    *http.Client
+	Cache         map[string]*[]byte
 }
 
 type cloneData struct {
@@ -36,12 +40,14 @@ type cloneData struct {
 // InitializeService sets up the service context for all API handlers
 func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	ctx := ServiceContext{Version: version,
+		APIURL:        cfg.APIURL,
 		SirsiURL:      cfg.SirsiURL,
 		SaxonURL:      cfg.SaxonURL,
 		PDFServiceURL: cfg.PDFServiceURL,
 		IIIFManURL:    cfg.IIIFManURL,
 		IIIFURL:       cfg.IIIFURL,
 	}
+	ctx.Cache = make(map[string]*[]byte)
 
 	log.Printf("Connecting to DB...")
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
@@ -167,6 +173,25 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 	return exemplarURL
 }
 
+func (svc *ServiceContext) saxonTransform(payload *url.Values) ([]byte, error) {
+	log.Printf("POST to SaxonServlet to transform %v", payload)
+	req, _ := http.NewRequest("POST", svc.SaxonURL, strings.NewReader(payload.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Content-Length", strconv.Itoa(len(payload.Encode())))
+	startTime := time.Now()
+	resp, rawErr := svc.HTTPClient.Do(req)
+	elapsedNanoSec := time.Since(startTime)
+	elapsedMS := int64(elapsedNanoSec / time.Millisecond)
+	bodyBytes, err := handleAPIResponse(svc.SaxonURL, resp, rawErr)
+	if err != nil {
+		log.Printf("ERROR: SaxonTransform failed: %s. Elapsed Time: %d (ms)", err.Error(), elapsedMS)
+		return nil, err
+	}
+
+	log.Printf("Successful response from SaxonTransform. Elapsed Time: %d (ms)", elapsedMS)
+	return bodyBytes, nil
+}
+
 func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
 	log.Printf("GET API Response from %s, timeout  %.0f sec", url, svc.HTTPClient.Timeout.Seconds())
 	req, _ := http.NewRequest("GET", url, nil)
@@ -176,7 +201,17 @@ func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
 	resp, rawErr := svc.HTTPClient.Do(req)
 	elapsedNanoSec := time.Since(startTime)
 	elapsedMS := int64(elapsedNanoSec / time.Millisecond)
+	bodyBytes, err := handleAPIResponse(url, resp, rawErr)
+	if err != nil {
+		log.Printf("ERROR: %s : %s. Elapsed Time: %d (ms)", url, err.Error(), elapsedMS)
+		return nil, err
+	}
 
+	log.Printf("Successful response from %s. Elapsed Time: %d (ms)", url, elapsedMS)
+	return bodyBytes, nil
+}
+
+func handleAPIResponse(url string, resp *http.Response, rawErr error) ([]byte, error) {
 	if rawErr != nil {
 		status := http.StatusBadRequest
 		errMsg := rawErr.Error()
@@ -188,7 +223,6 @@ func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
 			errMsg = fmt.Sprintf("%s refused connection", url)
 		}
 		err := fmt.Errorf("%d: %s", status, errMsg)
-		log.Printf("ERROR: %s : %s. Elapsed Time: %d (ms)", url, err.Error(), elapsedMS)
 		return nil, err
 	} else if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		defer resp.Body.Close()
@@ -196,14 +230,17 @@ func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
 		status := resp.StatusCode
 		errMsg := string(bodyBytes)
 		err := fmt.Errorf("%d: %s", status, errMsg)
-		log.Printf("ERROR: %s : %s. Elapsed Time: %d (ms)", url, err.Error(), elapsedMS)
 		return nil, err
 	}
 
 	defer resp.Body.Close()
 	bodyBytes, _ := ioutil.ReadAll(resp.Body)
-	log.Printf("Successful response from %s. Elapsed Time: %d (ms)", url, elapsedMS)
 	return bodyBytes, nil
+}
+
+// do we log this http response as an error or is it expected under normal circumstances
+func shouldLogAsError(httpStatus int) bool {
+	return httpStatus != http.StatusOK && httpStatus != http.StatusNotFound
 }
 
 func (svc *ServiceContext) getStyleSheet(c *gin.Context) {

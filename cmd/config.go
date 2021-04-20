@@ -23,6 +23,7 @@ type ServiceConfig struct {
 	PDFServiceURL string
 	IIIFManURL    string
 	IIIFURL       string
+	APIURL        string
 }
 
 // LoadConfiguration will load the service configuration from the commandline
@@ -36,6 +37,7 @@ func LoadConfiguration() *ServiceConfig {
 	flag.StringVar(&cfg.PDFServiceURL, "pdf", "https://pdfservice.lib.virginia.edu/pdf", "PDF service URL")
 	flag.StringVar(&cfg.IIIFManURL, "iiifman", "https://iiifman.lib.virginia.edu", "IIIF Manifest service URL")
 	flag.StringVar(&cfg.IIIFURL, "iiif", "https://iiif.lib.virginia.edu/iiif", "IIIF service URL")
+	flag.StringVar(&cfg.APIURL, "api", "https://iiif.lib.virginia.edu/iiif", "This API service URL")
 
 	// DB connection params
 	flag.StringVar(&cfg.DB.Host, "dbhost", "", "Database host")
@@ -60,6 +62,7 @@ func LoadConfiguration() *ServiceConfig {
 	}
 
 	log.Printf("[CONFIG] port          = [%d]", cfg.Port)
+	log.Printf("[CONFIG] api           = [%s]", cfg.APIURL)
 	log.Printf("[CONFIG] sirsi         = [%s]", cfg.SirsiURL)
 	log.Printf("[CONFIG] saxon         = [%s]", cfg.SaxonURL)
 	log.Printf("[CONFIG] pdf           = [%s]", cfg.PDFServiceURL)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"regexp"
 
 	"github.com/gin-gonic/gin"
@@ -72,21 +73,23 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 
 	// Now get metadata details
 	qSQL = `select m.id,pid,type,title,call_number,catalog_key,creator_name,
-		u.uri as rights_uri, u.statement as rights from metadata m
+		barcode, desc_metadata, u.uri as rights_uri, u.statement as rights from metadata m
 		left outer join use_rights u on u.id = m.use_right_id
 		where pid={:pid}`
 	q = svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"pid": pid})
 	var resp struct {
-		ID         int64          `db:"id"`
-		PID        string         `db:"pid"`
-		Type       string         `db:"type"`
-		Title      string         `db:"title"`
-		CallNumber sql.NullString `db:"call_number"`
-		CatalogKey sql.NullString `db:"catalog_key"`
-		Creator    sql.NullString `db:"creator_name"`
-		RightsURI  string         `db:"rights_uri"`
-		Rights     string         `db:"rights"`
+		ID           int64          `db:"id"`
+		PID          string         `db:"pid"`
+		Type         string         `db:"type"`
+		Title        string         `db:"title"`
+		Barcode      sql.NullString `db:"barcode"`
+		CallNumber   sql.NullString `db:"call_number"`
+		CatalogKey   sql.NullString `db:"catalog_key"`
+		Creator      sql.NullString `db:"creator_name"`
+		RightsURI    string         `db:"rights_uri"`
+		Rights       string         `db:"rights"`
+		DescMetadata sql.NullString `db:"desc_metadata"`
 	}
 	err = q.One(&resp)
 	if err != nil {
@@ -95,25 +98,67 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		return
 	}
 
-	if mdType == "marc" || mdType == "fixedmarc" {
-		if resp.CatalogKey.Valid {
-			re := regexp.MustCompile(`^u`)
-			cKey := re.ReplaceAll([]byte(resp.CatalogKey.String), []byte(""))
-			url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
-			respStr, err := svc.getAPIResponse(url)
-			if err != nil {
-				c.String(http.StatusNotFound, err.Error())
-			} else {
-				c.Header("Content-Type", "text/xml")
-				c.String(http.StatusOK, string(respStr))
-			}
+	if mdType == "marc" {
+		respBytes, err := svc.getMarc(resp.CatalogKey.String)
+		if err != nil {
+			log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
+			c.String(http.StatusNotFound, ":not found")
 		} else {
-			c.String(http.StatusNotFound, "not found")
+			c.Header("Content-Type", "text/xml")
+			c.String(http.StatusOK, string(respBytes))
 		}
 		return
 	}
 
-	exemplarURL := svc.getExemplarThumbURL(resp.ID)
+	// only used internally as part of the mods request. First part
+	// of mods runs a transform on the marc to fix common problems.
+	// the result is cached and used as the source for the marc->mods transform
+	if mdType == "fixedmarc" {
+		out, ok := svc.Cache[pid]
+		if ok {
+			c.Header("Content-Type", "text/xml")
+			c.String(http.StatusOK, string(*out))
+			delete(svc.Cache, pid)
+		} else {
+			log.Printf("Fixed MARC not available for %s, just use MARC", pid)
+			respBytes, err := svc.getMarc(resp.CatalogKey.String)
+			if err != nil {
+				log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
+				c.String(http.StatusNotFound, ":not found")
+			} else {
+				c.Header("Content-Type", "text/xml")
+				c.String(http.StatusOK, string(respBytes))
+			}
+		}
+		return
+	}
+
+	if mdType == "mods" {
+		if resp.Type == "SirsiMetadata" {
+			xml, err := svc.convertMarcToMods(resp.PID, resp.Barcode.String)
+			if err != nil {
+				log.Printf("ERROR: unable to transform marc into mods: %s", err.Error())
+				c.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+			c.Header("Content-Type", "text/xml")
+			c.String(http.StatusOK, string(xml))
+			return
+		}
+
+		if resp.Type == "XmlMetadata" {
+			if resp.DescMetadata.Valid {
+				c.Header("Content-Type", "text/xml")
+				c.String(http.StatusOK, resp.DescMetadata.String)
+			} else {
+				c.String(http.StatusNotFound, "not found")
+			}
+			return
+		}
+
+		c.String(http.StatusBadRequest, fmt.Sprintf("invalid metadata type for mods %s", resp.Type))
+		return
+	}
 
 	if mdType == "brief" {
 		type jsonOut struct {
@@ -128,17 +173,45 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		}
 		out := jsonOut{PID: resp.PID, Title: resp.Title, CallNumber: resp.CallNumber.String,
 			CatalogKey: resp.CatalogKey.String, Creator: resp.Creator.String, RightsURI: resp.RightsURI}
-		out.ExemplarURL = exemplarURL
+		out.ExemplarURL = svc.getExemplarThumbURL(resp.ID)
 		rs := "Find more information about permission to use the library's materials at https://www.library.virginia.edu/policies/use-of-materials."
 		out.RightsStatement = fmt.Sprintf("%s\n%s", resp.Rights, rs)
 		c.JSON(http.StatusOK, out)
 		return
 	}
 
-	if mdType == "mods" {
-		c.String(http.StatusOK, "mods")
-		return
+	c.String(http.StatusBadRequest, "invalid metadata type")
+}
+
+func (svc *ServiceContext) getMarc(catKey string) ([]byte, error) {
+	re := regexp.MustCompile(`^u`)
+	cKey := re.ReplaceAll([]byte(catKey), []byte(""))
+	url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
+	respStr, err := svc.getAPIResponse(url)
+	if err != nil {
+		return nil, err
+	}
+	return respStr, nil
+}
+
+func (svc *ServiceContext) convertMarcToMods(PID string, barcode string) ([]byte, error) {
+	// Converstion is two steps; first transform to fix common marc errors:
+	log.Printf("Run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", PID)
+	payload := url.Values{}
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, PID))
+	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
+	payload.Set("clear-stylesheet-cache", "yes")
+
+	bodyBytes, err := svc.saxonTransform(&payload)
+	if err != nil {
+		log.Printf("fixmarc failed with %s. Just transform original marc", err.Error())
+	} else {
+		svc.Cache[PID] = &bodyBytes
+		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, PID))
 	}
 
-	c.String(http.StatusBadRequest, "invalid metadata type")
+	// second step is to convert the fixed MARC to MODS
+	payload.Set("barcode", barcode)
+	payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
+	return svc.saxonTransform(&payload)
 }
