@@ -238,11 +238,6 @@ func handleAPIResponse(url string, resp *http.Response, rawErr error) ([]byte, e
 	return bodyBytes, nil
 }
 
-// do we log this http response as an error or is it expected under normal circumstances
-func shouldLogAsError(httpStatus int) bool {
-	return httpStatus != http.StatusOK && httpStatus != http.StatusNotFound
-}
-
 func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 	ssID := strings.ToLower(c.Param("id"))
 	log.Printf("Get Stylesheet %s", ssID)

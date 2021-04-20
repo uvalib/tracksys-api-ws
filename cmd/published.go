@@ -79,9 +79,28 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 		ItemIDs []string `json:"items"`
 	}
 
+	excludeKeys := make([]string, 0)
 	sql := `select distinct catalog_key from metadata where date_dl_ingest is not null and type = 'SirsiMetadata'`
 	if pubType == "other" {
 		sql = `select distinct pid from metadata where date_dl_ingest is not null and type = 'XmlMetadata'`
+	} else {
+		excludeSQL := `select distinct mp.catalog_key from metadata mc
+		inner join metadata mp on mc.parent_metadata_id = mp.id
+		where mc.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null
+		and mp.catalog_key is not null and mp.catalog_key != 'test'`
+		q := svc.DB.NewQuery(excludeSQL)
+		rows, err := q.Rows()
+		if err != nil {
+			log.Printf("Couldn't get collecttion cat keys: %s", err.Error())
+		} else {
+			for rows.Next() {
+				var ck string
+				re := rows.Scan(&ck)
+				if re == nil {
+					excludeKeys = append(excludeKeys, ck)
+				}
+			}
+		}
 	}
 	q := svc.DB.NewQuery(sql)
 	rows, err := q.Rows()
@@ -92,12 +111,23 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 
 	out := publishedPIDs{ItemIDs: make([]string, 0)}
 	for rows.Next() {
-		var pidRow string
-		re := rows.Scan(&pidRow)
+		var catKey string
+		re := rows.Scan(&catKey)
 		if re == nil {
-			out.ItemIDs = append(out.ItemIDs, pidRow)
+			if !contains(excludeKeys, catKey) {
+				out.ItemIDs = append(out.ItemIDs, catKey)
+			}
 		}
 	}
 	log.Printf("Found %d %s items published to virgo", len(out.ItemIDs), pubType)
 	c.JSON(http.StatusOK, out)
+}
+
+func contains(array []string, item string) bool {
+	for _, a := range array {
+		if a == item {
+			return true
+		}
+	}
+	return false
 }
