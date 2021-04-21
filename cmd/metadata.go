@@ -12,6 +12,20 @@ import (
 	dbx "github.com/go-ozzo/ozzo-dbx"
 )
 
+type metadata struct {
+	ID           int64          `db:"id"`
+	PID          string         `db:"pid"`
+	Type         string         `db:"type"`
+	Title        string         `db:"title"`
+	Barcode      sql.NullString `db:"barcode"`
+	CallNumber   sql.NullString `db:"call_number"`
+	CatalogKey   sql.NullString `db:"catalog_key"`
+	Creator      sql.NullString `db:"creator_name"`
+	RightsURI    string         `db:"rights_uri"`
+	Rights       string         `db:"rights"`
+	DescMetadata sql.NullString `db:"desc_metadata"`
+}
+
 func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	queryTxt := c.Query("q")
 	if queryTxt == "" {
@@ -78,19 +92,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		where pid={:pid}`
 	q = svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"pid": pid})
-	var resp struct {
-		ID           int64          `db:"id"`
-		PID          string         `db:"pid"`
-		Type         string         `db:"type"`
-		Title        string         `db:"title"`
-		Barcode      sql.NullString `db:"barcode"`
-		CallNumber   sql.NullString `db:"call_number"`
-		CatalogKey   sql.NullString `db:"catalog_key"`
-		Creator      sql.NullString `db:"creator_name"`
-		RightsURI    string         `db:"rights_uri"`
-		Rights       string         `db:"rights"`
-		DescMetadata sql.NullString `db:"desc_metadata"`
-	}
+	var resp metadata
 	err = q.One(&resp)
 	if err != nil {
 		log.Printf("ERROR: %s not found: %s", pid, err.Error())
@@ -135,7 +137,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 
 	if mdType == "mods" {
 		if resp.Type == "SirsiMetadata" {
-			xml, err := svc.convertMarcToMods(resp.PID, resp.Barcode.String)
+			xml, err := svc.convertMarcToMods(resp)
 			if err != nil {
 				log.Printf("ERROR: unable to transform marc into mods: %s", err.Error())
 				c.String(http.StatusInternalServerError, err.Error())
@@ -194,11 +196,11 @@ func (svc *ServiceContext) getMarc(catKey string) ([]byte, error) {
 	return respStr, nil
 }
 
-func (svc *ServiceContext) convertMarcToMods(PID string, barcode string) ([]byte, error) {
+func (svc *ServiceContext) convertMarcToMods(data metadata) ([]byte, error) {
 	// Converstion is two steps; first transform to fix common marc errors:
-	log.Printf("Run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", PID)
+	log.Printf("Run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", data.PID)
 	payload := url.Values{}
-	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, PID))
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, data.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
 	payload.Set("clear-stylesheet-cache", "yes")
 
@@ -206,12 +208,16 @@ func (svc *ServiceContext) convertMarcToMods(PID string, barcode string) ([]byte
 	if err != nil {
 		log.Printf("fixmarc failed with %s. Just transform original marc", err.Error())
 	} else {
-		svc.Cache[PID] = &bodyBytes
-		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, PID))
+		svc.Cache[data.PID] = &bodyBytes
+		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, data.PID))
 	}
 
 	// second step is to convert the fixed MARC to MODS
-	payload.Set("barcode", barcode)
+	payload.Set("PID", data.PID)
+	payload.Set("tracksysMetaID", fmt.Sprintf("%d", data.ID))
+	payload.Set("previewURI", svc.getExemplarThumbURL(data.ID))
+	payload.Set("useRightsURI", data.RightsURI)
+	payload.Set("barcode", data.Barcode.String)
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
 	return svc.saxonTransform(&payload)
 }

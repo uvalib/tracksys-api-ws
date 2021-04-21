@@ -2,16 +2,16 @@
 <!-- UVA Revision 1.119.00 -->
 <xsl:stylesheet xmlns="http://www.loc.gov/mods/v3" xmlns:marc="http://www.loc.gov/MARC21/slim"
   xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-  exclude-result-prefixes="xlink marc" version="2.0">
+  exclude-result-prefixes="marc" version="2.0">
 
   <!-- UVA Revision 1.119.01 -->
   <!-- MARC21slimUtils.xsl physically included -->
-
+  
   <!-- url encoding -->
   <xsl:variable name="ascii">
     <xsl:text> !"#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~</xsl:text>
   </xsl:variable>
-
+  
   <xsl:variable name="latin1">
     <xsl:text> ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ</xsl:text>
   </xsl:variable>
@@ -19,9 +19,9 @@
   <xsl:variable name="safe">
     <xsl:text>!'()*-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~</xsl:text>
   </xsl:variable>
-
+  
   <xsl:variable name="hex">0123456789ABCDEF</xsl:variable>
-
+  
   <xsl:template name="datafield">
     <xsl:param name="tag"/>
     <xsl:param name="ind1">
@@ -44,7 +44,7 @@
       <xsl:copy-of select="$subfields"/>
     </xsl:element>
   </xsl:template>
-
+  
   <xsl:template name="subfieldSelect">
     <xsl:param name="codes">abcdefghijklmnopqrstuvwxyz</xsl:param>
     <xsl:param name="delimeter">
@@ -60,7 +60,7 @@
     </xsl:variable>
     <xsl:value-of select="substring($str, 1, string-length($str) - string-length($delimeter))"/>
   </xsl:template>
-
+  
   <xsl:template name="buildSpaces">
     <xsl:param name="spaces"/>
     <xsl:param name="char">
@@ -74,7 +74,7 @@
       </xsl:call-template>
     </xsl:if>
   </xsl:template>
-
+  
   <xsl:template name="chopPunctuation">
     <xsl:param name="chopString"/>
     <xsl:param name="punctuation">
@@ -95,7 +95,7 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
-
+  
   <xsl:template name="chopPunctuationFront">
     <xsl:param name="chopString"/>
     <xsl:variable name="length" select="string-length($chopString)"/>
@@ -112,7 +112,7 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
-
+  
   <xsl:template name="chopPunctuationBack">
     <xsl:param name="chopString"/>
     <xsl:param name="punctuation">
@@ -133,12 +133,12 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
-
+  
   <!-- nate added 12/14/2007 for lccn.loc.gov: url encode ampersand, etc. -->
   <xsl:template name="url-encode">
-
+    
     <xsl:param name="str"/>
-
+    
     <xsl:if test="$str">
       <xsl:variable name="first-char" select="substring($str, 1, 1)"/>
       <xsl:choose>
@@ -175,12 +175,16 @@
       </xsl:if>
     </xsl:if>
   </xsl:template>
-
+  
   <!--<xsl:include href="MARC21slimUtils.xsl"/>-->
   <!--<xsl:include href="http://www.loc.gov/standards/marcxml/xslt/MARC21slimUtils.xsl"/>-->
-
+  
   <xsl:output encoding="UTF-8" indent="yes" method="xml" xml:space="preserve"/>
   <xsl:strip-space elements="*"/>
+
+  <!-- UVA Revision 1.119.63 -->
+  <xsl:param name="useRightsURI" select="''"/>
+  <xsl:param name="previewURI" select="''"/>
 
   <!-- UVA Revision 1.119.06 -->
   <xsl:param name="barcode" select="''"/>
@@ -189,9 +193,10 @@
   <xsl:param name="redact541" select="'true'"/>
 
   <!-- UVA Revision 1.119.13 -->
+  <!-- UVA Revision 1.119.13 -->
+  <xsl:param name="PID" select="''"/>
   <xsl:param name="tracksysUnitID" select="''"/>
   <xsl:param name="tracksysMetaID" select="''"/>
-  <xsl:param name="virgoIndexID" select="''"/>
 
   <!-- UVA Revision 1.119.04 -->
   <xsl:param name="reformattedDigital" select="'false'"/>
@@ -314,9 +319,11 @@
   <!-- Maintenance note: For each revision, change the content of $progVersion to reflect the 
     latest revision number. -->
   <xsl:variable name="progName">MARC21slim2MODS3-6_rev_no_include.xsl</xsl:variable>
-  <xsl:variable name="progVersion">1.119.62</xsl:variable>
+  <xsl:variable name="progVersion">1.119.64</xsl:variable>
 
   <!-- UVA Revisions
+  1.119.64 - Create attributes from 506 and 540 subfield u
+  1.119.63 - Add rightsURI and previewURI parameters. Rename virgoIndexID parameter to 'PID'.
   1.119.62 - Revise handling of all dates in 008
   1.119.61 - Revise handling of questionable and incorrectly coded Type of date/Publication status
   1.119.60 - Accommodate non-numeric values, such as a space, in 245/ind2
@@ -2662,7 +2669,7 @@
       <!-- UVA Revision 1.119.04 -->
       <xsl:if test="
           ($typeOf008 = 'CF' and marc:controlfield[@tag = '007'][substring(., 12, 1) = 'a']) or
-          matches($reformattedDigital, 'true')">
+          matches($reformattedDigital, 'true') or normalize-space($PID) = ''">
         <digitalOrigin>reformatted digital</digitalOrigin>
         <xsl:choose>
           <xsl:when test="matches($reformattingQuality, 'access|preservation|replacement')">
@@ -2700,7 +2707,7 @@
         </xsl:when>
         <xsl:when
           test="($controlField008-23 = ' ' and ($leader6 = 'c' or $leader6 = 'd')) or (($typeOf008 = 'BK' or $typeOf008 = 'SE') and ($controlField008-23 = ' ' or $controlField008 = 'r'))">
-          <xsl:if test="not($reformattedDigital eq 'true')">
+          <xsl:if test="not($reformattedDigital eq 'true') or normalize-space($PID) = ''">
             <form authority="marcform">print</form>
           </xsl:if>
         </xsl:when>
@@ -5544,21 +5551,16 @@
     </xsl:for-each>
 
     <!-- UVA Revision 1.119.12 -->
-    <xsl:choose>
-      <xsl:when test="marc:datafield[@tag = '506' or @tag = '540']">
-        <xsl:for-each select="marc:datafield[@tag = '506']">
-          <xsl:call-template name="createAccessConditionFrom506"/>
-        </xsl:for-each>
-        <xsl:for-each select="marc:datafield[@tag = '540']">
-          <xsl:call-template name="createAccessConditionFrom540"/>
-        </xsl:for-each>
-      </xsl:when>
-      <xsl:when test="$reformattedDigital eq 'true'">
-        <accessCondition type="use and reproduction"
-          >http://rightsstatements.org/vocab/CNE/1.0/</accessCondition>
-      </xsl:when>
-    </xsl:choose>
-
+    <xsl:for-each select="marc:datafield[@tag = '540']">
+      <xsl:call-template name="createAccessConditionFrom540"/>
+    </xsl:for-each>
+    <xsl:for-each select="marc:datafield[@tag = '506']">
+      <xsl:call-template name="createAccessConditionFrom506"/>
+    </xsl:for-each>
+    <xsl:if test="normalize-space($PID) != ''">
+      <accessCondition type="use and reproduction"
+        >http://rightsstatements.org/vocab/NoC-US/1.0/</accessCondition>
+    </xsl:if>
     <xsl:if test="$typeOf008 = 'BK' or $typeOf008 = 'CF' or $typeOf008 = 'MU' or $typeOf008 = 'VM'">
       <xsl:variable name="controlField008-22" select="substring($controlField008, 23, 1)"/>
       <xsl:choose>
@@ -6477,9 +6479,9 @@
         <xsl:value-of select="normalize-space($tracksysMetaID)"/>
       </identifier>
     </xsl:if>
-    <xsl:if test="normalize-space($virgoIndexID) ne ''">
+    <xsl:if test="normalize-space($PID) ne ''">
       <identifier type="local" displayLabel="Accessible Index Record Displayed in Virgo">
-        <xsl:value-of select="normalize-space($virgoIndexID)"/>
+        <xsl:value-of select="normalize-space($PID)"/>
       </identifier>
     </xsl:if>
 
@@ -6824,13 +6826,30 @@
           <xsl:call-template name="createHoldingSimpleFrom999"/>
         </xsl:for-each>
       </xsl:when>
-      <xsl:otherwise>
+      <xsl:when test="//*:datafield[@tag = '999']">
         <!-- UVA Revision 1.119.59 -->
         <xsl:for-each select="//marc:datafield[@tag = '999']">
           <xsl:sort select="marc:subfield[@code = 'a']"/>
           <xsl:call-template name="createHoldingSimpleFrom999"/>
         </xsl:for-each>
-      </xsl:otherwise>
+      </xsl:when>
+      <xsl:when test="normalize-space($previewURI) != '' or normalize-space($PID) != ''">
+        <location>
+          <xsl:if test="normalize-space($previewURI) != ''">
+            <url access="preview">
+              <xsl:value-of select="$previewURI"/>
+            </url>
+          </xsl:if>
+          <xsl:if test="normalize-space($PID) != ''">
+            <url access="raw object">
+              <xsl:value-of select="concat('https://curio.lib.virginia.edu/view/', $PID)"/>
+            </url>
+            <url access="object in context">
+              <xsl:value-of select="concat('http://search.lib.virginia.edu/catalog/', $PID)"/>
+            </url>
+          </xsl:if>
+        </location>
+      </xsl:when>
     </xsl:choose>
 
     <!-- UVA Revision 1.119.52 -->
@@ -10044,6 +10063,14 @@
   <xsl:template name="createAccessConditionFrom506">
     <accessCondition type="restriction on access">
       <xsl:call-template name="xxx880"/>
+      <!-- UVA Revision 1.119.64 -->
+      <xsl:if test="*:subfield[@code = 'u']">
+        <xsl:attribute name="xlink:href">
+          <xsl:call-template name="subfieldSelect">
+            <xsl:with-param name="codes">u</xsl:with-param>
+          </xsl:call-template>
+        </xsl:attribute>
+      </xsl:if>
       <xsl:call-template name="subfieldSelect">
         <xsl:with-param name="codes">abcd35</xsl:with-param>
       </xsl:call-template>
@@ -10053,6 +10080,14 @@
   <xsl:template name="createAccessConditionFrom540">
     <accessCondition type="use and reproduction">
       <xsl:call-template name="xxx880"/>
+      <!-- UVA Revision 1.119.64 -->
+      <xsl:if test="*:subfield[@code = 'u']">
+        <xsl:attribute name="xlink:href" xmlns="http://www.w3.org/1999/xlink">
+          <xsl:call-template name="subfieldSelect">
+            <xsl:with-param name="codes">u</xsl:with-param>
+          </xsl:call-template>
+        </xsl:attribute>
+      </xsl:if>
       <xsl:call-template name="subfieldSelect">
         <xsl:with-param name="codes">abcde35</xsl:with-param>
       </xsl:call-template>
@@ -10118,6 +10153,20 @@
           </xsl:for-each>
         </copyInformation>
       </holdingSimple>
+      <!-- UVA Revision 1.119.63 -->
+      <xsl:if test="normalize-space($previewURI) != ''">
+        <url access="preview">
+          <xsl:value-of select="$previewURI"/>
+        </url>
+      </xsl:if>
+      <xsl:if test="normalize-space($PID) != ''">
+        <url access="raw object">
+          <xsl:value-of select="concat('https://curio.lib.virginia.edu/view/', $PID)"/>
+        </url>
+        <url access="object in context">
+          <xsl:value-of select="concat('http://search.lib.virginia.edu/catalog/', $PID)"/>
+        </url>
+      </xsl:if>
     </location>
   </xsl:template>
 
