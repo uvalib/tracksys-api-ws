@@ -34,7 +34,7 @@ func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 		}
 	}
 
-	log.Printf("Found %d DPLA items in collections", count)
+	log.Printf("INFO: found %d DPLA items in collections", count)
 
 	// Now get stand-alone DPLA flagged metadata and generate the records
 	sql = `select distinct m.pid from metadata m
@@ -55,8 +55,8 @@ func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 			}
 		}
 	}
-	log.Printf("Found %d standalone DPLA items", count)
-	log.Printf("TOTAL DPLA items found: %d", len(out))
+	log.Printf("INFO: found %d standalone DPLA items", count)
+	log.Printf("INFO: total DPLA items found: %d", len(out))
 
 	c.String(http.StatusOK, strings.Join(out, ", "))
 }
@@ -64,13 +64,13 @@ func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 	pubType := strings.ToLower(c.Query("type"))
 	if pubType == "" {
-		log.Printf("Invalid request for virgo published items without a type param")
+		log.Printf("ERROR: invalid request for virgo published items without a type param")
 		c.String(http.StatusBadRequest, "type param is required")
 		return
 	}
 
 	if pubType != "other" && pubType != "sirsi" {
-		log.Printf("Unknown publication type: %s", pubType)
+		log.Printf("WARNING: unknown publication type: %s", pubType)
 		c.String(http.StatusBadRequest, fmt.Sprintf("type %s is not supported", pubType))
 		return
 	}
@@ -91,7 +91,7 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 		q := svc.DB.NewQuery(excludeSQL)
 		rows, err := q.Rows()
 		if err != nil {
-			log.Printf("Couldn't get collecttion cat keys: %s", err.Error())
+			log.Printf("WARNING: couldn't get collection cat keys: %s", err.Error())
 		} else {
 			for rows.Next() {
 				var ck string
@@ -119,7 +119,7 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 			}
 		}
 	}
-	log.Printf("Found %d %s items published to virgo", len(out.ItemIDs), pubType)
+	log.Printf("INFO: found %d %s items published to virgo", len(out.ItemIDs), pubType)
 	c.JSON(http.StatusOK, out)
 }
 

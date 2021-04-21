@@ -29,7 +29,7 @@ type ServiceConfig struct {
 // LoadConfiguration will load the service configuration from the commandline
 // and return a pointer to it. Any failures are fatal.
 func LoadConfiguration() *ServiceConfig {
-	log.Printf("Loading configuration...")
+	log.Printf("INFO: loading configuration...")
 	var cfg ServiceConfig
 	flag.IntVar(&cfg.Port, "port", 8080, "API service port (default 8080)")
 	flag.StringVar(&cfg.SirsiURL, "sirsi", "https://ils.lib.virginia.edu/uhtbin", "Sirsi URL")

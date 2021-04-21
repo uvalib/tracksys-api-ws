@@ -69,7 +69,7 @@ type pidSummary struct {
 
 func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	pid := c.Param("pid")
-	log.Printf("Get summary for %s", pid)
+	log.Printf("INFO: get summary for %s", pid)
 
 	// First try metadata...
 	sql := `select m.id,type,title,a.name as availability,date_dl_ingest,
@@ -188,7 +188,7 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 		c.String(http.StatusBadRequest, "invalid text type")
 		return
 	}
-	log.Printf("Get full text for %s", pid)
+	log.Printf("INFO: get full text for %s", pid)
 	spacesRegex := regexp.MustCompile(`\s+`)
 
 	sql := `select id,title,description,transcription_text from master_files where pid={:pid}`
@@ -222,7 +222,7 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 			var uID int64
 			err := q.Row(&uID)
 			if err != nil {
-				log.Printf("Unable to find unit for text api call: %s", err.Error())
+				log.Printf("WARNING: unable to find unit for text api call: %s", err.Error())
 				c.String(http.StatusNotFound, "not found")
 				return
 			}
@@ -244,7 +244,7 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 		var mfResp []masterFileSummary
 		err := q.All(&mfResp)
 		if err != nil {
-			log.Printf("Unable to find master files for text api call: %s", err.Error())
+			log.Printf("WARNING: unable to find master files for text api call: %s", err.Error())
 			c.String(http.StatusNotFound, "not found")
 			return
 		}
@@ -268,7 +268,7 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 
 func (svc *ServiceContext) getPIDType(c *gin.Context) {
 	pid := c.Param("pid")
-	log.Printf("Get type for %s", pid)
+	log.Printf("INFO: get type for %s", pid)
 
 	// First try metadata
 	qSQL := `select type,e.name as ext_system from metadata m left outer join external_systems e
@@ -322,7 +322,7 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 
 func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 	pid := c.Param("pid")
-	log.Printf("Get rights for %s", pid)
+	log.Printf("INFO: get rights for %s", pid)
 	q := svc.DB.NewQuery(`select id,availability_policy_id from metadata where pid={:pid}`)
 	q.Bind(dbx.Params{"pid": pid})
 	var resp struct {
@@ -339,7 +339,7 @@ func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 		q.Bind(dbx.Params{"pid": pid})
 		err = q.One(&resp)
 		if err != nil {
-			log.Printf("Unable to find %s: %s", pid, err.Error())
+			log.Printf("WARING: unable to find %s: %s", pid, err.Error())
 			c.String(http.StatusNotFound, "not found")
 			return
 		}

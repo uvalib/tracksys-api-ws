@@ -22,7 +22,7 @@ func main() {
 	cfg := LoadConfiguration()
 	svc := InitializeService(version, cfg)
 
-	log.Printf("Setup routes...")
+	log.Printf("INFO: setup routes...")
 	gin.SetMode(gin.ReleaseMode)
 	gin.DisableConsoleColor()
 	router := gin.Default()
@@ -68,6 +68,6 @@ func main() {
 	}
 
 	portStr := fmt.Sprintf(":%d", cfg.Port)
-	log.Printf("Start service v%s on port %s", version, portStr)
+	log.Printf("INFO: start service v%s on port %s", version, portStr)
 	log.Fatal(router.Run(portStr))
 }

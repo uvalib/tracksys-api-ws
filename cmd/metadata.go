@@ -33,7 +33,7 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Search tracksys for %s", queryTxt)
+	log.Printf("INFO: search tracksys for %s", queryTxt)
 	sql := fmt.Sprintf(`select id,pid,type,title,barcode,call_number from metadata
 			where title like {:qany} or barcode like {:q} or pid like {:q} or call_number like {:q} limit 500`)
 	q := svc.DB.NewQuery(sql)
@@ -41,7 +41,7 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	var mdResp []metadataSummary
 	err := q.All(&mdResp)
 	if err != nil {
-		log.Printf("Search failed: %s", err.Error())
+		log.Printf("WARNING: search failed: %s", err.Error())
 		c.String(http.StatusNotFound, "not found")
 		return
 	}
@@ -71,7 +71,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		c.String(http.StatusBadRequest, "type is required")
 		return
 	}
-	log.Printf("Get %s metadata for %s", mdType, pid)
+	log.Printf("INFO: get %s metadata for %s", mdType, pid)
 
 	// first, see if it is a masterfile pid and pull the metadata pid...
 	qSQL := `select m.pid from master_files f left outer join metadata m
@@ -81,7 +81,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	var newPID string
 	err := q.Row(&newPID)
 	if err == nil {
-		log.Printf("%s is a master file. Metadata PID=%s", pid, newPID)
+		log.Printf("INFO: %s is a master file. Metadata PID=%s", pid, newPID)
 		pid = newPID
 	}
 
@@ -122,7 +122,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 			c.String(http.StatusOK, string(*out))
 			delete(svc.Cache, pid)
 		} else {
-			log.Printf("Fixed MARC not available for %s, just use MARC", pid)
+			log.Printf("INFO: fixed MARC not available for %s, just use MARC", pid)
 			respBytes, err := svc.getMarc(resp.CatalogKey.String)
 			if err != nil {
 				log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
@@ -198,7 +198,7 @@ func (svc *ServiceContext) getMarc(catKey string) ([]byte, error) {
 
 func (svc *ServiceContext) convertMarcToMods(data metadata) ([]byte, error) {
 	// Converstion is two steps; first transform to fix common marc errors:
-	log.Printf("Run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", data.PID)
+	log.Printf("INFO: run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", data.PID)
 	payload := url.Values{}
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, data.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
@@ -206,7 +206,7 @@ func (svc *ServiceContext) convertMarcToMods(data metadata) ([]byte, error) {
 
 	bodyBytes, err := svc.saxonTransform(&payload)
 	if err != nil {
-		log.Printf("fixmarc failed with %s. Just transform original marc", err.Error())
+		log.Printf("ERROR: fixmarc failed with %s. Just transform original marc", err.Error())
 	} else {
 		svc.Cache[data.PID] = &bodyBytes
 		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, data.PID))

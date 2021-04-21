@@ -43,12 +43,12 @@ func (svc *ServiceContext) getManifest(c *gin.Context) {
 	var tgtID int64
 	err := q.Row(&tgtID)
 	if err != nil {
-		log.Printf("%s is not metadata: %s", pid, err.Error())
+		log.Printf("WARNING: %s is not metadata: %s", pid, err.Error())
 		q := svc.DB.NewQuery("select id from components where pid={:pid} and date_dl_ingest is not null")
 		q.Bind(dbx.Params{"pid": pid})
 		err := q.Row(&tgtID)
 		if err != nil {
-			log.Printf("%s is not a component: %s", pid, err.Error())
+			log.Printf("WARNING: %s is not a component: %s", pid, err.Error())
 			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
 			return
 		}
@@ -97,13 +97,13 @@ func (svc *ServiceContext) getMetadataManifest(ID int64, unitID string) (*[]mani
 	var q *dbx.Query
 
 	if unitID != "" {
-		log.Printf("Only including masterfiles from unit %s", unitID)
+		log.Printf("INFO: only including masterfiles from unit %s", unitID)
 		sql += ` inner join image_tech_meta t on t.master_file_id = m.id
 			where metadata_id={:mid} and unit_id={:uid} order by filename asc`
 		q = svc.DB.NewQuery(sql)
 		q.Bind(dbx.Params{"mid": ID, "uid": unitID})
 	} else {
-		log.Printf("Only including masterfiles from units in the DL")
+		log.Printf("INFO: only including masterfiles from units in the DL")
 		sql += ` inner join units u on u.id = m.unit_id
 				inner join image_tech_meta t on t.master_file_id = m.id
 				where m.metadata_id={:mid} and u.include_in_dl = 1 order by filename asc`
