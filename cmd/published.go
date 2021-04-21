@@ -80,7 +80,7 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 	}
 
 	excludeKeys := make([]string, 0)
-	sql := `select distinct catalog_key from metadata where date_dl_ingest is not null and type = 'SirsiMetadata'`
+	sql := `select distinct catalog_key from metadata where date_dl_ingest is not null and type = 'SirsiMetadata' and catalog_key <> ''`
 	if pubType == "other" {
 		sql = `select distinct pid from metadata where date_dl_ingest is not null and type = 'XmlMetadata'`
 	} else {
