@@ -37,7 +37,7 @@ type enrichData struct {
 
 func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	key := c.Param("pid")
-	log.Printf("Get enriched other metadata for PID %s", key)
+	log.Printf("INFO: get enriched other metadata for PID %s", key)
 	sql := `select m.id, pid, collection_facet, educational_use, commercial_use, modifications, uri
 		from metadata m left outer join use_rights u on u.id = m.use_right_id where pid={:id}
 		and date_dl_ingest is not null`
@@ -46,7 +46,7 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	var md basicMetadata
 	err := q.One(&md)
 	if err != nil {
-		log.Printf("%s not found: %s", key, err.Error())
+		log.Printf("WARNING: %s not found: %s", key, err.Error())
 		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
 		return
 	}
@@ -73,7 +73,7 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 
 func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	key := c.Param("key")
-	log.Printf("Get enriched sirsi metadata for catalog key %s", key)
+	log.Printf("INFO: get enriched sirsi metadata for catalog key %s", key)
 	sql := `select m.id, pid, collection_facet, barcode, call_number,
 		educational_use, commercial_use, modifications, uri
 		from metadata m left outer join use_rights u on u.id = m.use_right_id where catalog_key={:id}
@@ -83,12 +83,12 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	var mdRecs []basicMetadata
 	err := q.All(&mdRecs)
 	if err != nil {
-		log.Printf("%s not found: %s", key, err.Error())
+		log.Printf("WARNING: %s not found: %s", key, err.Error())
 		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
 		return
 	}
 	if len(mdRecs) == 0 {
-		log.Printf("%s not found", key)
+		log.Printf("WARNING: %s not found", key)
 		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
 		return
 	}
@@ -120,7 +120,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 }
 
 func (svc *ServiceContext) getIIIFManifestURL(pid string) (string, error) {
-	log.Printf("Get cached IIIF metadta for %s", pid)
+	log.Printf("INFO: get cached IIIF metadta for %s", pid)
 	url := fmt.Sprintf("%s/pid/%s/exist", svc.IIIFManURL, pid)
 	resp, err := svc.getAPIResponse(url)
 	if err != nil {

@@ -49,7 +49,7 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	}
 	ctx.Cache = make(map[string]*[]byte)
 
-	log.Printf("Connecting to DB...")
+	log.Printf("INFO: connecting to DB...")
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
 		cfg.DB.User, cfg.DB.Pass, cfg.DB.Host, cfg.DB.Name)
 	db, err := dbx.Open("mysql", connectStr)
@@ -58,9 +58,9 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	}
 	ctx.DB = db
 	db.LogFunc = log.Printf
-	log.Printf("DB Connection established")
+	log.Printf("INFO: DB Connection established")
 
-	log.Printf("Create HTTP Client...")
+	log.Printf("INFO: create HTTP Client...")
 	defaultTransport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -78,7 +78,7 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 		Transport: defaultTransport,
 		Timeout:   10 * time.Second,
 	}
-	log.Printf("HTTP Client created")
+	log.Printf("INFO: HTTP Client created")
 
 	return &ctx
 }
@@ -122,7 +122,7 @@ func (svc *ServiceContext) healthCheck(c *gin.Context) {
 }
 
 func (svc *ServiceContext) getOriginalMasterFile(mfID int64) (*cloneData, error) {
-	log.Printf("Lookup original masterfile %d for clone", mfID)
+	log.Printf("INFO: lookup original masterfile %d for clone", mfID)
 	q := svc.DB.NewQuery("select id,pid,filename from master_files where id={:id}")
 	q.Bind(dbx.Params{"id": mfID})
 	var clonedFrom cloneData
@@ -146,7 +146,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 	}
 	err := q.One(&mf)
 	if err != nil {
-		log.Printf("Unable to find exemplar for %d: %s", mdID, err.Error())
+		log.Printf("WARNING: unable to find exemplar for %d: %s", mdID, err.Error())
 		return exemplarURL
 	}
 
@@ -156,7 +156,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 		q.Bind(dbx.Params{"id": *mf.ClonedFromID})
 		err := q.One(&mf)
 		if err != nil {
-			log.Printf("Unable to find original exemplar for %d: %s", mdID, err.Error())
+			log.Printf("WARNING: unable to find original exemplar for %d: %s", mdID, err.Error())
 			return exemplarURL
 		}
 	}
@@ -174,7 +174,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 }
 
 func (svc *ServiceContext) saxonTransform(payload *url.Values) ([]byte, error) {
-	log.Printf("POST to SaxonServlet to transform %v", payload)
+	log.Printf("INFO: POST to SaxonServlet to transform %v", payload)
 	req, _ := http.NewRequest("POST", svc.SaxonURL, strings.NewReader(payload.Encode()))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Content-Length", strconv.Itoa(len(payload.Encode())))
@@ -188,12 +188,12 @@ func (svc *ServiceContext) saxonTransform(payload *url.Values) ([]byte, error) {
 		return nil, err
 	}
 
-	log.Printf("Successful response from SaxonTransform. Elapsed Time: %d (ms)", elapsedMS)
+	log.Printf("INFO: successful response from SaxonTransform. Elapsed Time: %d (ms)", elapsedMS)
 	return bodyBytes, nil
 }
 
 func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
-	log.Printf("GET API Response from %s, timeout  %.0f sec", url, svc.HTTPClient.Timeout.Seconds())
+	log.Printf("INFO: GET API Response from %s, timeout  %.0f sec", url, svc.HTTPClient.Timeout.Seconds())
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.128 Safari/537.36")
 
@@ -207,7 +207,7 @@ func (svc *ServiceContext) getAPIResponse(url string) ([]byte, error) {
 		return nil, err
 	}
 
-	log.Printf("Successful response from %s. Elapsed Time: %d (ms)", url, elapsedMS)
+	log.Printf("INFO: successful response from %s. Elapsed Time: %d (ms)", url, elapsedMS)
 	return bodyBytes, nil
 }
 
@@ -240,7 +240,7 @@ func handleAPIResponse(url string, resp *http.Response, rawErr error) ([]byte, e
 
 func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 	ssID := strings.ToLower(c.Param("id"))
-	log.Printf("Get Stylesheet %s", ssID)
+	log.Printf("INFO: get stylesheet %s", ssID)
 	c.Header("Content-Type", "text/xml")
 
 	if ssID == "default" {
