@@ -8,6 +8,7 @@ WORKDIR /build
 COPY go.mod go.sum Makefile ./
 COPY cmd ./cmd
 COPY xsl ./xsl
+COPY templates ./templates
 RUN make linux
 
 #
@@ -25,12 +26,12 @@ RUN addgroup --gid 18570 sse && adduser --uid 1984 docker -G sse -D
 ENV TZ=UTC
 RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# Specify home 
+# Specify home
 ENV APP_HOME /tracksys-api-ws
 WORKDIR $APP_HOME
 
 # Create necessary directories
-RUN mkdir -p $APP_HOME/scripts $APP_HOME/bin $APP_HOME/bin/xsl
+RUN mkdir -p $APP_HOME/scripts $APP_HOME/bin $APP_HOME/bin/xsl $APP_HOME/bin/templates
 RUN chown -R docker $APP_HOME && chgrp -R sse $APP_HOME
 
 # port and run command
@@ -41,6 +42,7 @@ CMD scripts/entry.sh
 COPY package/scripts/entry.sh $APP_HOME/scripts/entry.sh
 COPY package/data/container_bash_profile /home/docker/.profile
 COPY xsl/* $APP_HOME/bin/xsl/
+COPY templates/* $APP_HOME/bin/templates/
 COPY --from=builder /build/bin/tracksys-api-ws.linux $APP_HOME/bin/tracksys-api-ws
 
 # Ensure permissions are correct
