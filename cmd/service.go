@@ -121,6 +121,11 @@ func (svc *ServiceContext) healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, hcMap)
 }
 
+func (svc *ServiceContext) describeService(c *gin.Context) {
+	c.Header("Content-Type", "application/json")
+	c.File("./templates/describe.json")
+}
+
 func (svc *ServiceContext) getOriginalMasterFile(mfID int64) (*cloneData, error) {
 	log.Printf("INFO: lookup original masterfile %d for clone", mfID)
 	q := svc.DB.NewQuery("select id,pid,filename from master_files where id={:id}")

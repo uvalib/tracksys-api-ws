@@ -1,0 +1,78 @@
+{
+   "description": "This service exposes various forms of metadata for UVALibrary items that have been digitized. All are GET requests.",
+   "endpoints": [
+      {
+         "uri": "/version",
+         "description": "Get the version of this serice",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/manifest/:pid",
+         "description": "Get a list of masterfiles for the given PID",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/published/dpla",
+         "description": "Get a list identifiers that have been published to the DPLA",
+         "respone": "CSV"
+      },
+      {
+         "uri": "/api/published/virgo?type=[sirsi|other]",
+         "description": "Get a list identifiers that have been published to viro. Type is required.",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/enriched/sirsi/:key",
+         "description": "Get enriched metadata for a Sirsi item published to Virgo by catalog key.",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/enriched/other/:pid",
+         "description": "Get enriched metadata for an XML item published to Virgo by PID.",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/enriched/other/:pid",
+         "description": "Get enriched metadata for an XML item published to Virgo by PID",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/pid/:pid",
+         "description": "Get a brief summary for any PID",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/pid/:pid/access",
+         "description": "Get the access restrictions for any PID (public, uva or private).",
+         "respone": "Text"
+      },
+      {
+         "uri": "/api/pid/:pid/type",
+         "description": "Get the type of data represented by any PID.",
+         "respone": "Text"
+      },
+      {
+         "uri": "/api/pid/:pid/text",
+         "description": "Get the text associated with a master file or metadata record by PID.",
+         "respone": "Text",
+         "params": [
+            {
+               "type": "Master files only; (transcription|title|description). Determines what text to return"
+            },
+            {
+               "pagebreak": "Metadata only; include any truthy value to include page breaks in the transcription"
+            }
+         ]
+      },
+      {
+         "uri": "/api/search?q=[:query]",
+         "description": "Does a basic search over all metadata and returns broef details on all hits.",
+         "respone": "JSON"
+      },
+      {
+         "uri": "/api/metadata/:pid?type=(brief|mods|marc)",
+         "description": "Get metadata for a PID. Type is required. Not all PIDs support all types of metadata.",
+         "respone": "Depends on type: brief=JSON, other=XML"
+      }
+   ]
+}

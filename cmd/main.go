@@ -46,6 +46,7 @@ func main() {
 	router.GET("/favicon.ico", svc.ignoreFavicon)
 	router.GET("/version", svc.getVersion)
 	router.GET("/healthcheck", svc.healthCheck)
+	router.GET("/describe", svc.describeService)
 	api := router.Group("/api")
 	{
 		api.GET("/manifest/:pid", svc.getManifest)
