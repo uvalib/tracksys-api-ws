@@ -6,12 +6,12 @@
 
   <!-- UVA Revision 1.119.01 -->
   <!-- MARC21slimUtils.xsl physically included -->
-  
+
   <!-- url encoding -->
   <xsl:variable name="ascii">
     <xsl:text> !"#$%&amp;'()*+,-./0123456789:;&lt;=&gt;?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~</xsl:text>
   </xsl:variable>
-  
+
   <xsl:variable name="latin1">
     <xsl:text> ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ</xsl:text>
   </xsl:variable>
@@ -19,9 +19,9 @@
   <xsl:variable name="safe">
     <xsl:text>!'()*-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~</xsl:text>
   </xsl:variable>
-  
+
   <xsl:variable name="hex">0123456789ABCDEF</xsl:variable>
-  
+
   <xsl:template name="datafield">
     <xsl:param name="tag"/>
     <xsl:param name="ind1">
@@ -44,7 +44,7 @@
       <xsl:copy-of select="$subfields"/>
     </xsl:element>
   </xsl:template>
-  
+
   <xsl:template name="subfieldSelect">
     <xsl:param name="codes">abcdefghijklmnopqrstuvwxyz</xsl:param>
     <xsl:param name="delimeter">
@@ -60,7 +60,7 @@
     </xsl:variable>
     <xsl:value-of select="substring($str, 1, string-length($str) - string-length($delimeter))"/>
   </xsl:template>
-  
+
   <xsl:template name="buildSpaces">
     <xsl:param name="spaces"/>
     <xsl:param name="char">
@@ -74,7 +74,7 @@
       </xsl:call-template>
     </xsl:if>
   </xsl:template>
-  
+
   <xsl:template name="chopPunctuation">
     <xsl:param name="chopString"/>
     <xsl:param name="punctuation">
@@ -95,7 +95,7 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
-  
+
   <xsl:template name="chopPunctuationFront">
     <xsl:param name="chopString"/>
     <xsl:variable name="length" select="string-length($chopString)"/>
@@ -112,7 +112,7 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
-  
+
   <xsl:template name="chopPunctuationBack">
     <xsl:param name="chopString"/>
     <xsl:param name="punctuation">
@@ -133,12 +133,12 @@
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
-  
+
   <!-- nate added 12/14/2007 for lccn.loc.gov: url encode ampersand, etc. -->
   <xsl:template name="url-encode">
-    
+
     <xsl:param name="str"/>
-    
+
     <xsl:if test="$str">
       <xsl:variable name="first-char" select="substring($str, 1, 1)"/>
       <xsl:choose>
@@ -175,10 +175,10 @@
       </xsl:if>
     </xsl:if>
   </xsl:template>
-  
+
   <!--<xsl:include href="MARC21slimUtils.xsl"/>-->
   <!--<xsl:include href="http://www.loc.gov/standards/marcxml/xslt/MARC21slimUtils.xsl"/>-->
-  
+
   <xsl:output encoding="UTF-8" indent="yes" method="xml" xml:space="preserve"/>
   <xsl:strip-space elements="*"/>
 
@@ -5551,16 +5551,22 @@
     </xsl:for-each>
 
     <!-- UVA Revision 1.119.12 -->
-    <xsl:for-each select="marc:datafield[@tag = '540']">
-      <xsl:call-template name="createAccessConditionFrom540"/>
-    </xsl:for-each>
+    <xsl:choose>
+      <!-- useRightsURI parameter overrides 540 -->
+      <xsl:when test="normalize-space($useRightsURI) != ''">
+        <accessCondition type="use and reproduction">
+          <xsl:value-of select="normalize-space($useRightsURI)"/>
+        </accessCondition>
+      </xsl:when>
+      <xsl:when test="marc:datafield[@tag = '540']">
+        <xsl:for-each select="marc:datafield[@tag = '540']">
+          <xsl:call-template name="createAccessConditionFrom540"/>
+        </xsl:for-each>
+      </xsl:when>
+    </xsl:choose>
     <xsl:for-each select="marc:datafield[@tag = '506']">
       <xsl:call-template name="createAccessConditionFrom506"/>
     </xsl:for-each>
-    <xsl:if test="normalize-space($PID) != ''">
-      <accessCondition type="use and reproduction"
-        >http://rightsstatements.org/vocab/NoC-US/1.0/</accessCondition>
-    </xsl:if>
     <xsl:if test="$typeOf008 = 'BK' or $typeOf008 = 'CF' or $typeOf008 = 'MU' or $typeOf008 = 'VM'">
       <xsl:variable name="controlField008-22" select="substring($controlField008, 23, 1)"/>
       <xsl:choose>
