@@ -318,7 +318,7 @@
   <!-- UVA Revision 1.119.09 -->
   <!-- Maintenance note: For each revision, change the content of $progVersion to reflect the 
     latest revision number. -->
-  <xsl:variable name="progName">MARC21slim2MODS3-6_rev_no_include.xsl</xsl:variable>
+  <xsl:variable name="progName">MARC21slim2MODS3-6_rev.xsl</xsl:variable>
   <xsl:variable name="progVersion">1.119.64</xsl:variable>
 
   <!-- UVA Revisions
@@ -5517,7 +5517,6 @@
           <xsl:copy-of select="."/>
         </xsl:if>
       </xsl:for-each>
-
     </xsl:variable>
 
     <xsl:if test="string-length(normalize-space($physicalDescription))">
@@ -5552,21 +5551,28 @@
 
     <!-- UVA Revision 1.119.12 -->
     <xsl:choose>
-      <!-- useRightsURI parameter overrides 540 -->
+      <!-- useRightsURI parameter -->
       <xsl:when test="normalize-space($useRightsURI) != ''">
         <accessCondition type="use and reproduction">
           <xsl:value-of select="normalize-space($useRightsURI)"/>
         </accessCondition>
       </xsl:when>
+      <!-- Use 540 -->
       <xsl:when test="marc:datafield[@tag = '540']">
         <xsl:for-each select="marc:datafield[@tag = '540']">
           <xsl:call-template name="createAccessConditionFrom540"/>
         </xsl:for-each>
       </xsl:when>
+      <!-- When no value in $useRightsURI and no 540 -->
+      <xsl:otherwise>
+        <accessCondition type="use and reproduction"
+          >http://rightsstatements.org/vocab/CNE/1.0/</accessCondition>
+      </xsl:otherwise>
     </xsl:choose>
     <xsl:for-each select="marc:datafield[@tag = '506']">
       <xsl:call-template name="createAccessConditionFrom506"/>
     </xsl:for-each>
+
     <xsl:if test="$typeOf008 = 'BK' or $typeOf008 = 'CF' or $typeOf008 = 'MU' or $typeOf008 = 'VM'">
       <xsl:variable name="controlField008-22" select="substring($controlField008, 23, 1)"/>
       <xsl:choose>
@@ -6839,24 +6845,26 @@
           <xsl:call-template name="createHoldingSimpleFrom999"/>
         </xsl:for-each>
       </xsl:when>
-      <xsl:when test="normalize-space($previewURI) != '' or normalize-space($PID) != ''">
-        <location>
-          <xsl:if test="normalize-space($previewURI) != ''">
-            <url access="preview">
-              <xsl:value-of select="$previewURI"/>
-            </url>
-          </xsl:if>
-          <xsl:if test="normalize-space($PID) != ''">
-            <url access="raw object">
-              <xsl:value-of select="concat('https://curio.lib.virginia.edu/view/', $PID)"/>
-            </url>
-            <url access="object in context">
-              <xsl:value-of select="concat('http://search.lib.virginia.edu/catalog/', $PID)"/>
-            </url>
-          </xsl:if>
-        </location>
-      </xsl:when>
     </xsl:choose>
+    <!-- UVA Revision 1.119.63 -->
+    <xsl:if
+      test="count(*:datafield[@tag eq '999']) &gt; 1 and (normalize-space($previewURI) != '' or normalize-space($PID) != '')">
+      <location>
+        <xsl:if test="normalize-space($previewURI) != ''">
+          <url access="preview">
+            <xsl:value-of select="$previewURI"/>
+          </url>
+        </xsl:if>
+        <xsl:if test="normalize-space($PID) != ''">
+          <url access="raw object">
+            <xsl:value-of select="concat('https://curio.lib.virginia.edu/view/', $PID)"/>
+          </url>
+          <url access="object in context">
+            <xsl:value-of select="concat('http://search.lib.virginia.edu/catalog/', $PID)"/>
+          </url>
+        </xsl:if>
+      </location>
+    </xsl:if>
 
     <!-- UVA Revision 1.119.52 -->
     <xsl:for-each select="marc:datafield[@tag = '974']">
@@ -10160,12 +10168,12 @@
         </copyInformation>
       </holdingSimple>
       <!-- UVA Revision 1.119.63 -->
-      <xsl:if test="normalize-space($previewURI) != ''">
+      <xsl:if test="count(../*:datafield[@tag = '999']) = 1 and normalize-space($previewURI) != ''">
         <url access="preview">
           <xsl:value-of select="$previewURI"/>
         </url>
       </xsl:if>
-      <xsl:if test="normalize-space($PID) != ''">
+      <xsl:if test="count(../*:datafield[@tag = '999']) = 1 and normalize-space($PID) != ''">
         <url access="raw object">
           <xsl:value-of select="concat('https://curio.lib.virginia.edu/view/', $PID)"/>
         </url>
@@ -10195,8 +10203,3 @@
   </xsl:template>
 
 </xsl:stylesheet>
-<!-- Stylus Studio meta-information - (c) 2004-2005. Progress Software Corporation. All rights reserved.
-<metaInformation>
-<scenarios/><MapperMetaTag><MapperInfo srcSchemaPathIsRelative="yes" srcSchemaInterpretAsXML="no" destSchemaPath="" destSchemaRoot="" destSchemaPathIsRelative="yes" destSchemaInterpretAsXML="no"/><MapperBlockPosition></MapperBlockPosition><TemplateContext></TemplateContext></MapperMetaTag>
-</metaInformation>
--->
