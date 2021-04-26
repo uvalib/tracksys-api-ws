@@ -27,13 +27,16 @@ type metadataSummary struct {
 }
 
 type masterFileSummary struct {
-	ID          int64          `db:"id"`
-	Title       sql.NullString `db:"title"`
-	Description sql.NullString `db:"description"`
-	Filename    sql.NullString `db:"filename"`
-	TextSource  sql.NullInt64  `db:"text_source"`
-	Text        sql.NullString `db:"transcription_text"`
-	ParentPID   sql.NullString `db:"parent_pid"`
+	ID           int64          `db:"id"`
+	Title        sql.NullString `db:"title"`
+	Description  sql.NullString `db:"description"`
+	Filename     sql.NullString `db:"filename"`
+	TextSource   sql.NullInt64  `db:"text_source"`
+	Text         sql.NullString `db:"transcription_text"`
+	ParentPID    sql.NullString `db:"parent_pid"`
+	OCRLangHint  sql.NullString `db:"ocr_language_hint"`
+	OCRHint      sql.NullString `db:"ocr_hint"`
+	OCRCandidate sql.NullBool   `db:"ocr_candidate"`
 }
 
 type componentSummary struct {
@@ -117,20 +120,31 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	}
 
 	// try master file...
-	sql = `select f.id,f.title,filename,text_source,transcription_text,m.pid as parent_pid
-		from master_files f left outer join metadata m on m.id = f.metadata_id where f.pid={:pid}`
+	sql = `select f.id,f.title,filename,text_source,transcription_text,m.pid as parent_pid,
+		ocr_language_hint, o.name as ocr_hint,ocr_candidate
+		from master_files f left outer join metadata m on m.id = f.metadata_id
+		left outer join ocr_hints o on o.id = m.ocr_hint_id
+		where f.pid={:pid}`
 	q = svc.DB.NewQuery(sql)
 	q.Bind(dbx.Params{"pid": pid})
 	var mfResp masterFileSummary
 	err = q.One(&mfResp)
 	if err == nil {
-		out := pidSummary{ID: mfResp.ID, PID: pid, Type: "master_file", Title: mfResp.Title.String, Filename: mfResp.Filename.String}
+		out := pidSummary{ID: mfResp.ID, PID: pid, Type: "master_file", Title: mfResp.Title.String,
+			ParentPID: mfResp.ParentPID.String, Filename: mfResp.Filename.String}
 		if mfResp.Text.Valid && mfResp.Text.String != "" {
 			if mfResp.TextSource.Valid && mfResp.TextSource.Int64 == 2 {
 				out.HasTranscription = true
 			} else {
 				out.HasOCR = true
 			}
+		}
+		if mfResp.OCRLangHint.Valid {
+			out.OCRLanguageHint = mfResp.OCRLangHint.String
+		}
+		if mfResp.OCRHint.Valid {
+			out.OCRHint = mfResp.OCRHint.String
+			out.OCRCandidate = mfResp.OCRCandidate.Bool
 		}
 		c.JSON(http.StatusOK, out)
 		return
