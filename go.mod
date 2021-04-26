@@ -17,7 +17,7 @@ require (
 	github.com/ugorji/go v1.2.5 // indirect
 	github.com/zsais/go-gin-prometheus v0.1.0
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
-	golang.org/x/sys v0.0.0-20210421221651-33663a62ff08 // indirect
+	golang.org/x/sys v0.0.0-20210426080607-c94f62235c83 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
