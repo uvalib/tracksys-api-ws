@@ -49,6 +49,7 @@ func main() {
 	router.GET("/describe", svc.describeService)
 	api := router.Group("/api")
 	{
+		api.GET("/circulation", svc.getCirculationData)
 		api.GET("/manifest/:pid", svc.getManifest)
 
 		api.GET("/published/dpla", svc.getPublishedDPLA)

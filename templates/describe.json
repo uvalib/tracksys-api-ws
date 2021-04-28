@@ -7,6 +7,19 @@
          "respone": "JSON"
       },
       {
+         "uri": "/api/circulation",
+         "description": "Get a circulation report for the date range specified",
+         "respone": "JSON",
+         "params": [
+            {
+               "from": "Start date of the report. Format YYYY-MM-DD"
+            },
+            {
+               "to": "End date of the report. Format YYYY-MM-DD"
+            }
+         ]
+      },
+      {
          "uri": "/api/manifest/:pid",
          "description": "Get a list of masterfiles for the given PID",
          "respone": "JSON"
