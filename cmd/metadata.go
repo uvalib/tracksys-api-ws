@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -71,7 +72,6 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		c.String(http.StatusBadRequest, "type is required")
 		return
 	}
-	log.Printf("INFO: get %s metadata for %s", mdType, pid)
 
 	// first, see if it is a masterfile pid and pull the metadata pid...
 	qSQL := `select m.pid from master_files f left outer join metadata m
@@ -95,73 +95,12 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	var resp metadata
 	err = q.One(&resp)
 	if err != nil {
-		log.Printf("ERROR: %s not found: %s", pid, err.Error())
+		log.Printf("WARNING: %s not found: %s", pid, err.Error())
 		c.String(http.StatusNotFound, "not found")
 		return
 	}
 
-	if mdType == "marc" {
-		respBytes, err := svc.getMarc(resp.CatalogKey.String)
-		if err != nil {
-			log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
-			c.String(http.StatusNotFound, ":not found")
-		} else {
-			c.Header("Content-Type", "text/xml")
-			c.String(http.StatusOK, string(respBytes))
-		}
-		return
-	}
-
-	// only used internally as part of the mods request. First part
-	// of mods runs a transform on the marc to fix common problems.
-	// the result is cached and used as the source for the marc->mods transform
-	if mdType == "fixedmarc" {
-		out, ok := svc.Cache[pid]
-		if ok {
-			c.Header("Content-Type", "text/xml")
-			c.String(http.StatusOK, string(*out))
-			delete(svc.Cache, pid)
-		} else {
-			log.Printf("INFO: fixed MARC not available for %s, just use MARC", pid)
-			respBytes, err := svc.getMarc(resp.CatalogKey.String)
-			if err != nil {
-				log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
-				c.String(http.StatusNotFound, ":not found")
-			} else {
-				c.Header("Content-Type", "text/xml")
-				c.String(http.StatusOK, string(respBytes))
-			}
-		}
-		return
-	}
-
-	if mdType == "mods" {
-		if resp.Type == "SirsiMetadata" {
-			xml, err := svc.convertMarcToMods(resp)
-			if err != nil {
-				log.Printf("ERROR: unable to transform marc into mods: %s", err.Error())
-				c.String(http.StatusInternalServerError, err.Error())
-				return
-			}
-			c.Header("Content-Type", "text/xml")
-			c.String(http.StatusOK, string(xml))
-			return
-		}
-
-		if resp.Type == "XmlMetadata" {
-			if resp.DescMetadata.Valid {
-				c.Header("Content-Type", "text/xml")
-				c.String(http.StatusOK, resp.DescMetadata.String)
-			} else {
-				c.String(http.StatusNotFound, "not found")
-			}
-			return
-		}
-
-		c.String(http.StatusBadRequest, fmt.Sprintf("invalid metadata type for mods %s", resp.Type))
-		return
-	}
-
+	// Simple request for brief metadata on this item
 	if mdType == "brief" {
 		type jsonOut struct {
 			PID             string `json:"pid"`
@@ -182,42 +121,205 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		return
 	}
 
+	// Get MARC data for this item; only valid for Sirsi PIDs
+	if mdType == "marc" {
+		respBytes, err := svc.getMarc(resp)
+		if err != nil {
+			log.Printf("WARNING: Unable to get MARC for %s: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			c.Header("Content-Type", "text/xml")
+			c.String(http.StatusOK, string(respBytes))
+		}
+		return
+	}
+
+	// only used internally as part of the mods request. First part
+	// of mods runs a transform on the marc to fix common problems.
+	// the result is cached and used as the source for the marc->mods transform
+	if mdType == "fixedmarc" {
+		respBytes, err := svc.getFixedMARC(resp)
+		if err != nil {
+			log.Printf("WARNING: Unable to get MARC for %s: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			c.Header("Content-Type", "text/xml")
+			c.String(http.StatusOK, string(respBytes))
+		}
+
+		return
+	}
+
+	// Get MODS metadata (from cache if available)
+	if mdType == "mods" {
+		xml, err := svc.getMODS(resp)
+		if err != nil {
+			log.Printf("WARNING: unable to get MODS for %s: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		c.Header("Content-Type", "text/xml")
+		c.String(http.StatusOK, string(xml))
+		return
+	}
+
+	// Get uvaMAP metadata; this is a multistep process. First, a transform is applied to fix common
+	// MARC errors. The result of that is transformed into MODS. Lastly, that MODS result is transformed
+	// into uvaMAP. Each step of the transform is cached and used to drive the next step
+	if mdType == "uvamap" {
+		uvaMapBytes, err := svc.getUVAMAP(resp)
+		if err != nil {
+			log.Printf("WARNING: unable to get uvaMAP for %s: %s", resp.PID, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.Header("Content-Type", "text/xml")
+		c.String(http.StatusOK, string(uvaMapBytes))
+		return
+	}
+
+	// Get DPLA metadata. This is another multi-step transform. Stages:
+	// MARC -> FixedMARC -> MODS -> uvaMAP -> DPLA
+	// As in other multi-step transforms, each step result is cached and drives the next step
+	if mdType == "dpla" {
+		dplaBytes, err := svc.getDPLA(resp)
+		if err != nil {
+			log.Printf("WARNING: unable to get DPLA for %s: %s", resp.PID, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.Header("Content-Type", "text/xml")
+		c.String(http.StatusOK, string(dplaBytes))
+		return
+	}
+
 	c.String(http.StatusBadRequest, "invalid metadata type")
 }
 
-func (svc *ServiceContext) getMarc(catKey string) ([]byte, error) {
+func (svc *ServiceContext) getFixedMARC(md metadata) ([]byte, error) {
+	fixedMarc := svc.getCache("fixedmarc", md.PID)
+	if fixedMarc != nil {
+		log.Printf("INFO: returning cached FixedMARC")
+		return fixedMarc, nil
+	}
+
+	payload := url.Values{}
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, md.PID))
+	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
+	payload.Set("clear-stylesheet-cache", "yes")
+
+	log.Printf("INFO: run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", md.PID)
+	bodyBytes, err := svc.saxonTransform(&payload)
+	if err != nil {
+		log.Printf("WARNING: fixmarc failed with %s. Just transform original marc", err.Error())
+		return svc.getMarc(md)
+	}
+	// Cache the fixed MARC in the MARC field of the data for this PID
+	log.Printf("INFO: Cache fixedMARC for %s", md.PID)
+	svc.updateCache("fixedmarc", md.PID, bodyBytes)
+	return bodyBytes, nil
+}
+
+func (svc *ServiceContext) getMODS(md metadata) ([]byte, error) {
+	log.Printf("INFO: Get MODS for PID %s", md.PID)
+	mods := svc.getCache("mods", md.PID)
+	if mods != nil {
+		log.Printf("INFO: returning cached MODS")
+		return mods, nil
+	}
+
+	log.Printf("INFO: Generating MODS for %s", md.PID)
+	if md.Type == "SirsiMetadata" {
+		payload := url.Values{}
+		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, md.PID))
+		payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
+		payload.Set("clear-stylesheet-cache", "yes")
+		payload.Set("PID", md.PID)
+		payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
+		payload.Set("previewURI", svc.getExemplarThumbURL(md.ID))
+		payload.Set("useRightsURI", md.RightsURI)
+		payload.Set("barcode", md.Barcode.String)
+		mods, err := svc.saxonTransform(&payload)
+		if err == nil {
+			log.Printf("INFO: cache MODS for %s", md.PID)
+			svc.updateCache("mods", md.PID, mods)
+		}
+		return mods, err
+	}
+
+	if md.Type == "XmlMetadata" {
+		return []byte(md.DescMetadata.String), nil
+	}
+	return nil, errors.New("not found")
+}
+
+func (svc *ServiceContext) getUVAMAP(md metadata) ([]byte, error) {
+	log.Printf("INFO: Get uvaMAP for PID %s", md.PID)
+	uvaMAP := svc.getCache("uvamap", md.PID)
+	if uvaMAP != nil {
+		log.Printf("INFO: returning cached UVAMAP")
+		return uvaMAP, nil
+	}
+
+	payload := url.Values{}
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=mods", svc.APIURL, md.PID))
+	payload.Set("style", fmt.Sprintf("%s/stylesheet/modstouvamap", svc.APIURL))
+	payload.Set("PID", md.PID)
+	payload.Set("clear-stylesheet-cache", "yes")
+
+	uvaMapBytes, err := svc.saxonTransform(&payload)
+	if err != nil {
+		log.Printf("ERROR: modstouvamap for %s failed with %s.", md.PID, err.Error())
+		return nil, err
+	}
+
+	log.Printf("INFO: cache uvaMAP for %s", md.PID)
+	svc.updateCache("uvamap", md.PID, uvaMapBytes)
+	return uvaMapBytes, nil
+}
+
+func (svc *ServiceContext) getDPLA(md metadata) ([]byte, error) {
+	dpla := svc.getCache("dpla", md.PID)
+	if dpla != nil {
+		log.Printf("INFO: returning cached DPLA")
+		return dpla, nil
+	}
+	payload := url.Values{}
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=uvamap", svc.APIURL, md.PID))
+	payload.Set("style", fmt.Sprintf("%s/stylesheet/uvamaptodpla", svc.APIURL))
+	payload.Set("clear-stylesheet-cache", "yes")
+
+	dplaBytes, err := svc.saxonTransform(&payload)
+	if err != nil {
+		log.Printf("ERROR: uvamaptodpla for %s failed with %s.", md.PID, err.Error())
+		return nil, err
+	}
+
+	log.Printf("INFO: cache DPLA for %s", md.PID)
+	svc.updateCache("dpla", md.PID, dplaBytes)
+	return dplaBytes, nil
+}
+
+func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
+	log.Printf("INFO: Get MARC for %s", md.PID)
+	marc := svc.getCache("marc", md.PID)
+	if marc != nil {
+		log.Printf("INFO: returning cached MARC")
+		return marc, nil
+	}
+
+	log.Printf("INFO: Get MARC from Siri")
 	re := regexp.MustCompile(`^u`)
-	cKey := re.ReplaceAll([]byte(catKey), []byte(""))
+	cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
 	url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
 	respStr, err := svc.getAPIResponse(url)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("INFO: Cache raw MARC for %s", md.PID)
+	svc.updateCache("marc", md.PID, respStr)
 	return respStr, nil
-}
-
-func (svc *ServiceContext) convertMarcToMods(data metadata) ([]byte, error) {
-	// Converstion is two steps; first transform to fix common marc errors:
-	log.Printf("INFO: run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", data.PID)
-	payload := url.Values{}
-	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, data.PID))
-	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
-	payload.Set("clear-stylesheet-cache", "yes")
-
-	bodyBytes, err := svc.saxonTransform(&payload)
-	if err != nil {
-		log.Printf("ERROR: fixmarc failed with %s. Just transform original marc", err.Error())
-	} else {
-		svc.Cache[data.PID] = &bodyBytes
-		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, data.PID))
-	}
-
-	// second step is to convert the fixed MARC to MODS
-	payload.Set("PID", data.PID)
-	payload.Set("tracksysMetaID", fmt.Sprintf("%d", data.ID))
-	payload.Set("previewURI", svc.getExemplarThumbURL(data.ID))
-	payload.Set("useRightsURI", data.RightsURI)
-	payload.Set("barcode", data.Barcode.String)
-	payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
-	return svc.saxonTransform(&payload)
 }

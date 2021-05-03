@@ -7,6 +7,8 @@
     omit-xml-declaration="no" standalone="no"/>
   <xsl:strip-space elements="*"/>
 
+  <xsl:param name="PID" select="''"/>
+
   <!--<xsl:import href="marcCarrierMap.xsl"/>-->
   <!-- MARC - RDA Carrier Map -->
   <xsl:variable name="marcCarrierMap">
@@ -8481,7 +8483,7 @@
 
   <!-- program version -->
   <xsl:variable name="progVersion">
-    <xsl:text>2.03</xsl:text>
+    <xsl:text>2.04</xsl:text>
   </xsl:variable>
 
   <!-- new line -->
@@ -8489,12 +8491,34 @@
     <xsl:text>&#xa;</xsl:text>
   </xsl:variable>
 
-  <xsl:variable name="fileName">
-    <xsl:value-of select="tokenize(document-uri(), '/')[last()]"/>
-  </xsl:variable>
-
-  <xsl:variable name="pidFromFileName">
-    <xsl:value-of select="replace(replace($fileName, '-mods.xml$', ''), '_', ':')"/>
+  <xsl:variable name="PID2">
+    <xsl:choose>
+      <!-- PID provided in parameter -->
+      <xsl:when test="normalize-space($PID) ne ''">
+        <xsl:value-of select="$PID"/>
+      </xsl:when>
+      <!-- PID in identifier/@type or @displayLabel-->
+      <!-- Privilege 'metadata pid' over just 'pid' -->
+      <xsl:when test="*:mods/*:identifier[matches(@type, 'metadata pid', 'i')]">
+        <xsl:value-of select="*:mods/*:identifier[matches(@type, 'metadata pid', 'i')][1]"/>
+      </xsl:when>
+      <xsl:when test="*:mods/*:identifier[matches(@displayLabel, 'metadata pid', 'i')]">
+        <xsl:value-of select="*:mods/*:identifier[matches(@displayLabel, 'metadata pid', 'i')][1]"/>
+      </xsl:when>
+      <xsl:when test="*:mods/*:identifier[matches(@type, 'pid', 'i')]">
+        <xsl:value-of select="*:mods/*:identifier[matches(@type, 'pid', 'i')][1]"/>
+      </xsl:when>
+      <xsl:when test="*:mods/*:identifier[matches(@displayLabel, 'pid', 'i')]">
+        <xsl:value-of select="*:mods/*:identifier[matches(@displayLabel, 'pid', 'i')][1]"/>
+      </xsl:when>
+      <!-- PID in input file name -->
+      <!-- <xsl:otherwise>
+        <xsl:variable name="fileName">
+          <xsl:value-of select="tokenize(document-uri(.), '/')[last()]"/>
+        </xsl:variable>
+        <xsl:value-of select="replace(replace($fileName, '-mods.xml$', ''), '_', ':')"/>
+      </xsl:otherwise> -->
+    </xsl:choose>
   </xsl:variable>
 
   <xsl:variable name="extraMetadataFile">
@@ -8776,6 +8800,7 @@
 
   <!-- Remove @xsi:schemaLocation on MODS element -->
   <xsl:template match="*:mods" mode="prepMODS">
+    <!--<xsl:message>PID2='<xsl:value-of select="$PID2"/>'</xsl:message>-->
     <xsl:copy>
       <xsl:apply-templates select="@*[not(matches(local-name(), 'schemaLocation'))]" mode="prepMODS"/>
       <xsl:apply-templates mode="prepMODS"/>
@@ -9397,10 +9422,13 @@
         <xsl:apply-templates select="*:name | *:identifier" mode="uvaMAP"/>
 
         <!-- Add metadata PID if it's not already present -->
-        <xsl:if
-          test="not(*:identifier[matches(@displayLabel, 'metadata pid|record displayed in virgo', 'i')]) and matches($pidFromFileName, '^.+:\d+$')">
+        <!-- PID parameter *DOES NOT* override PID in the file -->
+        <xsl:if test="
+            not(*:identifier[matches(@displayLabel, 'pid|record displayed in virgo', 'i')]) and
+            not(*:identifier[matches(@type, 'pid|record displayed in virgo', 'i')]) and
+            matches($PID2, '^[^:]+:\d+$')">
           <field name="identifier" type="Metadata PID">
-            <xsl:value-of select="$pidFromFileName"/>
+            <xsl:value-of select="$PID2"/>
           </field>
         </xsl:if>
 
@@ -9494,7 +9522,7 @@
 
         <!-- Add rights statement and URIs from external file -->
         <xsl:variable name="pidMatchExact">
-          <xsl:value-of select="concat('^', normalize-space($pidFromFileName), '$')"/>
+          <xsl:value-of select="concat('^', normalize-space($PID2), '$')"/>
         </xsl:variable>
         <xsl:variable name="accessConditionPresent">
           <xsl:choose>

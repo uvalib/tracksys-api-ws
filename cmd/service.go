@@ -17,6 +17,14 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// CacheRecord contains mods/uvamap/dpla results that are temporarily cached
+// This is necessary for many metadata requests ast they require multi-step transforms
+// with each depending upon the results of the last. Entries are short lived; 1 minute
+type CacheRecord struct {
+	Data      []byte
+	ExpiresAt time.Time
+}
+
 // ServiceContext contains common data used by all handlers
 type ServiceContext struct {
 	Version       string
@@ -28,7 +36,8 @@ type ServiceContext struct {
 	IIIFURL       string
 	DB            *dbx.DB
 	HTTPClient    *http.Client
-	Cache         map[string]*[]byte
+	SaxonClient   *http.Client
+	Cache         map[string]CacheRecord
 }
 
 type cloneData struct {
@@ -47,7 +56,7 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 		IIIFManURL:    cfg.IIIFManURL,
 		IIIFURL:       cfg.IIIFURL,
 	}
-	ctx.Cache = make(map[string]*[]byte)
+	go ctx.startCache()
 
 	log.Printf("INFO: connecting to DB...")
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
@@ -57,7 +66,7 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 		log.Fatal(err)
 	}
 	ctx.DB = db
-	db.LogFunc = log.Printf
+	// db.LogFunc = log.Printf
 	log.Printf("INFO: DB Connection established")
 
 	log.Printf("INFO: create HTTP Client...")
@@ -77,6 +86,10 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	ctx.HTTPClient = &http.Client{
 		Transport: defaultTransport,
 		Timeout:   10 * time.Second,
+	}
+	ctx.SaxonClient = &http.Client{
+		Transport: defaultTransport,
+		Timeout:   30 * time.Second,
 	}
 	log.Printf("INFO: HTTP Client created")
 
@@ -184,7 +197,7 @@ func (svc *ServiceContext) saxonTransform(payload *url.Values) ([]byte, error) {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Content-Length", strconv.Itoa(len(payload.Encode())))
 	startTime := time.Now()
-	resp, rawErr := svc.HTTPClient.Do(req)
+	resp, rawErr := svc.SaxonClient.Do(req)
 	elapsedNanoSec := time.Since(startTime)
 	elapsedMS := int64(elapsedNanoSec / time.Millisecond)
 	bodyBytes, err := handleAPIResponse(svc.SaxonURL, resp, rawErr)
@@ -258,6 +271,14 @@ func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 	}
 	if ssID == "marctomods" {
 		c.File("./xsl/MARC21slim2MODS3-6_rev_no_include.xsl")
+		return
+	}
+	if ssID == "modstouvamap" {
+		c.File("./xsl/mods2uvaMAP_no_include.xsl")
+		return
+	}
+	if ssID == "uvamaptodpla" {
+		c.File("./xsl/uvaMap2DPLA_no_include.xsl")
 		return
 	}
 	if ssID == "fixmarc" {
