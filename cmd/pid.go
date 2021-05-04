@@ -330,8 +330,14 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 		return
 	}
 
-	log.Printf("ERROR: unable to find PID %s: %s", pid, err.Error())
-	c.String(http.StatusNotFound, "not found")
+	// possible expected error condition
+	if err == sql.ErrNoRows {
+		log.Printf("WARNING: PID %s not found in database", pid)
+		c.String(http.StatusNotFound, "not found")
+	} else {
+		log.Printf("ERROR: unable to find PID %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+	}
 }
 
 func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
