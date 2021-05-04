@@ -30,6 +30,7 @@ type metadata struct {
 func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	queryTxt := c.Query("q")
 	if queryTxt == "" {
+		log.Printf("ERROR: search requested with no query")
 		c.String(http.StatusBadRequest, "q parameter required")
 		return
 	}
@@ -62,6 +63,7 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 		out = append(out, hit)
 	}
 
+	log.Printf("%d hits found for %s", len(out), queryTxt)
 	c.JSON(http.StatusOK, out)
 }
 
@@ -69,6 +71,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	pid := c.Param("pid")
 	mdType := c.Query("type")
 	if mdType == "" {
+		log.Printf("ERROR: Metadata requested without a type")
 		c.String(http.StatusBadRequest, "type is required")
 		return
 	}
@@ -117,6 +120,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		out.ExemplarURL = svc.getExemplarThumbURL(resp.ID)
 		rs := "Find more information about permission to use the library's materials at https://www.library.virginia.edu/policies/use-of-materials."
 		out.RightsStatement = fmt.Sprintf("%s\n%s", resp.Rights, rs)
+		log.Printf("INFO: successful request for brief metadata for %s", resp.PID)
 		c.JSON(http.StatusOK, out)
 		return
 	}
@@ -230,8 +234,8 @@ func (svc *ServiceContext) getMODS(md metadata) ([]byte, error) {
 		return mods, nil
 	}
 
-	log.Printf("INFO: Generating MODS for %s", md.PID)
 	if md.Type == "SirsiMetadata" {
+		log.Printf("INFO: Generating MODS for %s", md.PID)
 		payload := url.Values{}
 		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, md.PID))
 		payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
@@ -250,8 +254,11 @@ func (svc *ServiceContext) getMODS(md metadata) ([]byte, error) {
 	}
 
 	if md.Type == "XmlMetadata" {
+		log.Printf("INFO: Returning raw MODS from database for %s", md.PID)
 		return []byte(md.DescMetadata.String), nil
 	}
+
+	log.Printf("WARNING: MODS metadata requested for unsupported metadata type: %s", md.Type)
 	return nil, errors.New("not found")
 }
 

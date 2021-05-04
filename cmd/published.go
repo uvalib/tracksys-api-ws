@@ -70,7 +70,7 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 	}
 
 	if pubType != "other" && pubType != "sirsi" {
-		log.Printf("WARNING: unknown publication type: %s", pubType)
+		log.Printf("WARNING: unsupported publication type: %s", pubType)
 		c.String(http.StatusBadRequest, fmt.Sprintf("type %s is not supported", pubType))
 		return
 	}

@@ -166,6 +166,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 		return
 	}
 
+	log.Printf("WARNING: %s not found as metadata, master file nor component", pid)
 	c.String(http.StatusNotFound, "not found")
 }
 
@@ -181,6 +182,7 @@ func (svc *ServiceContext) getTextInfo(ID int64, field string) textInfo {
 	}
 	err := q.One(&resp)
 	if err != nil {
+		log.Printf("INFO: no text found for master_file %d", ID)
 		return textInfo{}
 	}
 	if !resp.Source.Valid {
@@ -217,6 +219,7 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 		} else if txtType == "description" {
 			out = mfResp.Description.String
 		}
+		log.Printf("%s text returned for master file %s", txtType, pid)
 		c.String(http.StatusOK, spacesRegex.ReplaceAllString(out, " "))
 		return
 	}
@@ -273,10 +276,12 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 		if pgBreak != "" {
 			out += "\n\n[ END ]\n\n"
 		}
+		log.Printf("INFO: returning transcription for metadata %s", pid)
 		c.String(http.StatusOK, out)
 		return
 	}
 
+	log.Printf("WARNING: text requested for PID %s, which is not a master file nor metadata record", pid)
 	c.String(http.StatusNotFound, "not found")
 }
 
@@ -295,18 +300,25 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 	}
 	err := q.One(&resp)
 	if err == nil {
+		// No error; this is PID is metadata, find out the type
 		if resp.Type == "SirsiMetadata" {
+			log.Printf("%s is sirsi metadata", pid)
 			c.String(http.StatusOK, "sirsi_metadata")
 		} else if resp.Type == "XmlMetadata" {
+			log.Printf("%s is xml metadata", pid)
 			c.String(http.StatusOK, "xml_metadata")
 		} else if resp.Type == "ExternalMetadata" && resp.System.String == "ArchivesSpace" {
+			log.Printf("%s is archivesSpace metadata", pid)
 			c.String(http.StatusOK, "archivesspace_metadata")
 		} else if resp.Type == "ExternalMetadata" && resp.System.String == "Apollo" {
+			log.Printf("%s is apollo metadata", pid)
 			c.String(http.StatusOK, "apollo_metadata")
 		} else if resp.Type == "ExternalMetadata" && resp.System.String == "JSTOR Forum" {
+			log.Printf("%s is jstor metadata", pid)
 			c.String(http.StatusOK, "jstor_metadata")
 		} else {
-			c.String(http.StatusInternalServerError, "unknown metadata type")
+			log.Printf("WARN: %s is an unsupported metadata type: %s", pid, resp.Type)
+			c.String(http.StatusBadRequest, "unsupported metadata type")
 		}
 		return
 	}
@@ -317,6 +329,7 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 	q.Bind(dbx.Params{"pid": pid})
 	err = q.Row(&ID)
 	if err == nil {
+		log.Printf("%s is a component", pid)
 		c.String(http.StatusOK, "component")
 		return
 	}
@@ -326,18 +339,13 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 	q.Bind(dbx.Params{"pid": pid})
 	err = q.Row(&ID)
 	if err == nil {
+		log.Printf("%s is a master file", pid)
 		c.String(http.StatusOK, "masterfile")
 		return
 	}
 
-	// possible expected error condition
-	if err == sql.ErrNoRows {
-		log.Printf("WARNING: PID %s not found in database", pid)
-		c.String(http.StatusNotFound, "not found")
-	} else {
-		log.Printf("ERROR: unable to find PID %s: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
-	}
+	log.Printf("WARNING: PID %s not found in database as metadata, masterfile nor component", pid)
+	c.String(http.StatusNotFound, "not found")
 }
 
 func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
@@ -378,5 +386,6 @@ func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 		return
 	}
 
+	log.Printf("WARNING: %s not found in database", pid)
 	c.String(http.StatusNotFound, "not found")
 }

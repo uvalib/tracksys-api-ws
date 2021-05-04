@@ -106,7 +106,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: md.RightsURI}
 		iiifURL, err := svc.getIIIFManifestURL(md.PID)
 		if err != nil {
-			log.Printf("ERROR: %s", err.Error())
+			log.Printf("WARNING: Unable to get IIIF manifest for %s", md.PID)
 			c.String(http.StatusNotFound, "iiif manifest not found")
 			return
 		}

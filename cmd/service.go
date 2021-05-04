@@ -192,7 +192,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 }
 
 func (svc *ServiceContext) saxonTransform(payload *url.Values) ([]byte, error) {
-	log.Printf("INFO: POST to SaxonServlet to transform %v", payload)
+	log.Printf("INFO: POST to SaxonServlet %v", payload)
 	req, _ := http.NewRequest("POST", svc.SaxonURL, strings.NewReader(payload.Encode()))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Content-Length", strconv.Itoa(len(payload.Encode())))
@@ -202,7 +202,8 @@ func (svc *ServiceContext) saxonTransform(payload *url.Values) ([]byte, error) {
 	elapsedMS := int64(elapsedNanoSec / time.Millisecond)
 	bodyBytes, err := handleAPIResponse(svc.SaxonURL, resp, rawErr)
 	if err != nil {
-		log.Printf("ERROR: SaxonTransform failed: %s. Elapsed Time: %d (ms)", err.Error(), elapsedMS)
+		// Don't log the error, its just a messy blob of HTML with no useful info
+		log.Printf("ERROR: SaxonTransform failed. Elapsed Time: %d (ms)", elapsedMS)
 		return nil, err
 	}
 
@@ -261,14 +262,6 @@ func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 	log.Printf("INFO: get stylesheet %s", ssID)
 	c.Header("Content-Type", "text/xml")
 
-	if ssID == "default" {
-		c.File("./xsl/defaultModsTransformation.xsl")
-		return
-	}
-	if ssID == "holsinger" {
-		c.File("./xsl/holsingerTransformation.xsl")
-		return
-	}
 	if ssID == "marctomods" {
 		c.File("./xsl/MARC21slim2MODS3-6_rev_no_include.xsl")
 		return
@@ -286,6 +279,7 @@ func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 		return
 	}
 
+	log.Printf("ERROR: stylesheet %s not found", ssID)
 	c.Header("Content-Type", "text/plain")
 	c.String(http.StatusNotFound, "not found")
 }
