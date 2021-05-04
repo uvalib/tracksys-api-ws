@@ -8521,10 +8521,6 @@
     </xsl:choose>
   </xsl:variable>
 
-  <xsl:variable name="extraMetadataFile">
-    <xsl:text>tracksys-mods-extra-metadata.xml</xsl:text>
-  </xsl:variable>
-
   <!-- ======================================================================= -->
   <!-- UTILITIES / NAMED TEMPLATES                                             -->
   <!-- ======================================================================= -->
@@ -9530,101 +9526,6 @@
             <xsl:otherwise>false</xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
-        <xsl:if test="doc-available($extraMetadataFile)">
-          <xsl:for-each
-            select="doc($extraMetadataFile)//*:pid[matches(normalize-space(.), $pidMatchExact)]">
-            <!-- If accessCondition isn't already available, use the rights URL from $extradMetadataFile -->
-            <xsl:if test="$accessConditionPresent = 'false' and normalize-space(../*:rsUrl) ne ''">
-              <field name="useRestrict">
-                <xsl:attribute name="valueURI">
-                  <xsl:value-of select="../*:rsUrl"/>
-                </xsl:attribute>
-                <!-- Map rsUrl to a human-readable value -->
-                <xsl:choose>
-                  <xsl:when test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC/1.0/')"
-                    >In Copyright</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-OW-EU/1.0/')"
-                    >In Copyright - EU Orphan Work</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-EDU/1.0/')">In
-                    Copyright - Educational Use Permitted</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-NC/1.0/')">In
-                    Copyright - Non-Commercial Use Permitted</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-RUU/1.0/')">In
-                    Copyright - Rights-holder(s) Unlocatable or Unidentifiable</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-CR/1.0/')">No
-                    Copyright - Contractual Restrictions</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-NC/1.0/')">No
-                    Copyright - Non-Commercial Use Only</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-OKLR/1.0/')">No
-                    Copyright - Other Known Legal Restrictions</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-US/1.0/')">No
-                    Copyright - United States</xsl:when>
-                  <xsl:when test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/CNE/1.0/')"
-                    >Copyright Not Evaluated</xsl:when>
-                  <xsl:when test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/UND/1.0/')"
-                    >Copyright Undetermined</xsl:when>
-                  <xsl:when test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NKC/1.0/')"
-                    >No Known Copyright</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nd/4.0/legalcode')"
-                    >Attribution</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nd/4.0/legalcode')"
-                    >CC BY-ND</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc/4.0/legalcode')"
-                    >Attribution-NonCommercial</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc/4.0/legalcode')"
-                    >CC BY-NC</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode')"
-                    >Attribution-NonCommercial-ShareAlike</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode')"
-                    >CC BY-NC-SA</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode')"
-                    >Attribution-NonCommercial-NoDerivs</xsl:when>
-                  <xsl:when
-                    test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode')"
-                    >CC BY-NC-ND</xsl:when>
-                  <xsl:otherwise>
-                    <xsl:value-of select="../*:rsUrl"/>
-                  </xsl:otherwise>
-                </xsl:choose>
-              </field>
-            </xsl:if>
-            <xsl:if test="normalize-space(../*:imageUrl) ne ''">
-              <field name="uri" displayLabel="uvaIIIFimage">
-                <xsl:value-of select="../*:imageUrl"/>
-              </field>
-            </xsl:if>
-            <xsl:if test="normalize-space(../*:thumbnailUrl) ne ''">
-              <field name="uri" access="preview" displayLabel="uvaIIIFthumbnail">
-                <xsl:value-of select="../*:thumbnailUrl"/>
-              </field>
-            </xsl:if>
-            <xsl:if test="normalize-space(../*:manifestUrl) ne ''">
-              <field name="uri" displayLabel="uvaIIIFmanifest">
-                <xsl:value-of select="../*:manifestUrl"/>
-              </field>
-              <field name="uri" access="object in context" displayLabel="online">
-                <xsl:value-of
-                  select="concat('https://search.lib.virginia.edu/catalog/', replace(../*:manifestUrl, '^.*/', ''))"
-                />
-              </field>
-            </xsl:if>
-          </xsl:for-each>
-        </xsl:if>
 
         <!-- Subject -->
         <xsl:for-each select="descendant::*:subject">
