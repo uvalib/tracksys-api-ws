@@ -321,6 +321,10 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 			c.String(http.StatusBadRequest, "unsupported metadata type")
 		}
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (metadata) %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	// see if it is a component...
@@ -332,6 +336,10 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 		log.Printf("%s is a component", pid)
 		c.String(http.StatusOK, "component")
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (component) %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	// last chance... master file?
@@ -342,9 +350,13 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 		log.Printf("%s is a master file", pid)
 		c.String(http.StatusOK, "masterfile")
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (master_file) %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	log.Printf("WARNING: PID %s not found in database as metadata, masterfile nor component", pid)
+	log.Printf("WARNING: PID %s not found in database", pid)
 	c.String(http.StatusNotFound, "not found")
 }
 
