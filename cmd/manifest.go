@@ -133,11 +133,17 @@ func (svc *ServiceContext) generateManifest(masterFiles *[]masterFileData) (*[]m
 
 		// get original info if this is a clone
 		if mf.ClonedFromID.Valid {
-			orig, err := svc.getOriginalMasterFile(mf.ClonedFromID.Int64)
+			log.Printf("INFO: lookup original masterfile %d for clone", mf.ClonedFromID.Int64)
+			q := svc.DB.NewQuery("select id,pid,filename from master_files where id={:id}")
+			q.Bind(dbx.Params{"id": mf.ClonedFromID.Int64})
+			var clonedFrom cloneData
+			err := q.One(&clonedFrom)
 			if err != nil {
-				return nil, err
+				log.Printf("ERROR: master file %d is cloned from %d, but original could not be found: %s",
+					mf.ID, mf.ClonedFromID.Int64, err.Error())
+			} else {
+				item.ClonedFrom = &clonedFrom
 			}
-			item.ClonedFrom = orig
 		}
 
 		out = append(out, item)

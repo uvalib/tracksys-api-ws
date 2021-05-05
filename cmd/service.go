@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -139,49 +140,42 @@ func (svc *ServiceContext) describeService(c *gin.Context) {
 	c.File("./templates/describe.json")
 }
 
-func (svc *ServiceContext) getOriginalMasterFile(mfID int64) (*cloneData, error) {
-	log.Printf("INFO: lookup original masterfile %d for clone", mfID)
-	q := svc.DB.NewQuery("select id,pid,filename from master_files where id={:id}")
-	q.Bind(dbx.Params{"id": mfID})
-	var clonedFrom cloneData
-	err := q.One(&clonedFrom)
-	if err != nil {
-		return nil, err
-	}
-	return &clonedFrom, nil
-}
-
 func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 	exemplarURL := ""
-	sql := `select id,pid,original_mf_id from master_files where metadata_id={:id} and exemplar=1 limit 1`
-	q := svc.DB.NewQuery(sql)
+	qSQL := `select id,pid,original_mf_id from master_files where metadata_id={:id} and exemplar=1 limit 1`
+	q := svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"id": mdID})
 
 	var mf struct {
-		ID           int64  `db:"id"`
-		PID          string `db:"pid"`
-		ClonedFromID *int64 `db:"original_mf_id"`
+		ID           int64         `db:"id"`
+		PID          string        `db:"pid"`
+		ClonedFromID sql.NullInt64 `db:"original_mf_id"`
 	}
 	err := q.One(&mf)
 	if err != nil {
-		log.Printf("WARNING: unable to find exemplar for %d: %s", mdID, err.Error())
-		return exemplarURL
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: unable to find exemplar for %d: %s", mdID, err.Error())
+		} else {
+			log.Printf("WARNING: no exemplar set for %d", mdID)
+		}
+		return ""
 	}
 
 	// If ClonedFromID is set, this MF is cloned. Must use original MF for exemplar
-	if mf.ClonedFromID != nil {
-		q := svc.DB.NewQuery(sql)
-		q.Bind(dbx.Params{"id": *mf.ClonedFromID})
+	if mf.ClonedFromID.Valid {
+		q := svc.DB.NewQuery(qSQL)
+		q.Bind(dbx.Params{"id": mf.ClonedFromID.Int64})
 		err := q.One(&mf)
 		if err != nil {
-			log.Printf("WARNING: unable to find original exemplar for %d: %s", mdID, err.Error())
-			return exemplarURL
+			log.Printf("ERROR: exemplar for %d is a clone, and original %d could not be found: %s",
+				mdID, mf.ClonedFromID.Int64, err.Error())
+			return ""
 		}
 	}
 
 	// orientation is enum type: none: 0, flip_y_axis: 1, rotate90: 2, rotate180: 3, rotate270
-	sql = `select orientation from image_tech_meta where master_file_id={:id} limit 1`
-	q = svc.DB.NewQuery(sql)
+	qSQL = `select orientation from image_tech_meta where master_file_id={:id} limit 1`
+	q = svc.DB.NewQuery(qSQL)
 	orientationID := 0
 	rotations := []string{"0", "!0", "90", "180", "270"}
 	q.Bind(dbx.Params{"id": mf.ID})

@@ -338,7 +338,7 @@ func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
 		return marc, nil
 	}
 
-	log.Printf("INFO: Get MARC from Siri")
+	log.Printf("INFO: Get MARC from Sirsi")
 	re := regexp.MustCompile(`^u`)
 	cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
 	url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
