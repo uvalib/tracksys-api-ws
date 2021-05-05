@@ -38,39 +38,53 @@ type manifestData struct {
 
 func (svc *ServiceContext) getManifest(c *gin.Context) {
 	pid := c.Param("pid")
+
+	// First see if the PID is for a metadata record...
+	log.Printf("INFO: get manifest for %s", pid)
 	q := svc.DB.NewQuery("select id from metadata where pid={:pid}")
 	q.Bind(dbx.Params{"pid": pid})
 	var tgtID int64
 	err := q.Row(&tgtID)
-	if err != nil {
-		log.Printf("WARNING: %s is not metadata: %s", pid, err.Error())
-		q := svc.DB.NewQuery("select id from components where pid={:pid}")
-		q.Bind(dbx.Params{"pid": pid})
-		err := q.Row(&tgtID)
+	if err == nil {
+		log.Printf("INFO: %s is a metadata record", pid)
+		unitID := c.Query("unit")
+		manifest, err := svc.getMetadataManifest(tgtID, unitID)
 		if err != nil {
-			log.Printf("WARNING: %s is not a component: %s", pid, err.Error())
-			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
-			return
-		}
-
-		manifest, err := svc.getComponentManifest(tgtID)
-		if err != nil {
-			log.Printf("ERROR: Unable to get component %d manifest: %s", tgtID, err.Error())
-			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
+			log.Printf("ERROR: Unable to get manifest for metadata %s: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			c.JSON(http.StatusOK, manifest)
 		}
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: manifest query to find metadata %s failed: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	unitID := c.Query("unit")
-	manifest, err := svc.getMetadataManifest(tgtID, unitID)
-	if err != nil {
-		log.Printf("ERROR: Unable to get metadata %s manifest: %s", pid, err.Error())
-		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
-	} else {
-		c.JSON(http.StatusOK, manifest)
+	// See if the pid is a component...
+	log.Printf("INFO: %s is not a metadata record; trying components", pid)
+	q = svc.DB.NewQuery("select id from components where pid={:pid}")
+	q.Bind(dbx.Params{"pid": pid})
+	err = q.Row(&tgtID)
+	if err == nil {
+		log.Printf("INFO: %s is a component", pid)
+		manifest, err := svc.getComponentManifest(tgtID)
+		if err != nil {
+			log.Printf("ERROR: Unable to get manifest for component %d: %s", tgtID, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			c.JSON(http.StatusOK, manifest)
+		}
+		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: manifest query to find compponent %s failed: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
+
+	log.Printf("WARNING: %s not found in database", pid)
+	c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
 }
 
 func (svc *ServiceContext) getComponentManifest(cID int64) (*[]manifestData, error) {
@@ -120,6 +134,9 @@ func (svc *ServiceContext) getMetadataManifest(ID int64, unitID string) (*[]mani
 }
 
 func (svc *ServiceContext) generateManifest(masterFiles *[]masterFileData) (*[]manifestData, error) {
+	if len(*masterFiles) == 0 {
+		return nil, fmt.Errorf("no masterfiles found")
+	}
 	// take raw master file data and convert into the manifest, including orientation and clone info
 	orientations := []string{"normal", "flip_y_axis", "rotate90", "rotate180", "rotate270"}
 	out := make([]manifestData, 0)
@@ -139,14 +156,14 @@ func (svc *ServiceContext) generateManifest(masterFiles *[]masterFileData) (*[]m
 			var clonedFrom cloneData
 			err := q.One(&clonedFrom)
 			if err != nil {
-				log.Printf("ERROR: master file %d is cloned from %d, but original could not be found: %s",
+				return nil, fmt.Errorf("master file %d is cloned from %d, but original could not be found: %s",
 					mf.ID, mf.ClonedFromID.Int64, err.Error())
-			} else {
-				item.ClonedFrom = &clonedFrom
 			}
+			item.ClonedFrom = &clonedFrom
 		}
 
 		out = append(out, item)
 	}
+	log.Printf("INFO: generated manifest with %d master files", len(out))
 	return &out, nil
 }
