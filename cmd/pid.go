@@ -249,13 +249,13 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 	if err == nil {
 		unitID := c.Query("unit")
 		if unitID == "" {
-			q := svc.DB.NewQuery(`select id from units where include_in_dl =1 and metadata_id={:id} limit 1`)
+			q := svc.DB.NewQuery(`select id from units where include_in_dl=1 and metadata_id={:id} limit 1`)
 			q.Bind(dbx.Params{"id": mdResp.ID})
 			var uID int64
 			err := q.Row(&uID)
 			if err != nil {
 				if err != sql.ErrNoRows {
-					log.Printf("ERROR: metadata %s unit find failed for text api call: %s", pid, err.Error())
+					log.Printf("ERROR: find unit for metadata %s failed for text api call: %s", pid, err.Error())
 					c.String(http.StatusInternalServerError, err.Error())
 				} else {
 					log.Printf("WARNING: unable to find unit for text api call")
@@ -275,14 +275,19 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 			}
 		}
 
-		sql := `select id,title,description,transcription_text from master_files where unit_id={:uid}`
-		q := svc.DB.NewQuery(sql)
+		qSQL := `select id,title,description,transcription_text from master_files where unit_id={:uid}`
+		q := svc.DB.NewQuery(qSQL)
 		q.Bind(dbx.Params{"uid": unitID})
 		var mfResp []masterFileSummary
 		err := q.All(&mfResp)
 		if err != nil {
-			log.Printf("WARNING: unable to find master files for text api call: %s", err.Error())
-			c.String(http.StatusNotFound, "not found")
+			if err != sql.ErrNoRows {
+				log.Printf("ERROR: unable to get  masterfiles for unit %s: %s", unitID, err.Error())
+				c.String(http.StatusNotFound, "not found")
+			} else {
+				log.Printf("WARNING: no masterfiles found for unit %s", unitID)
+				c.String(http.StatusNotFound, "not found")
+			}
 			return
 		}
 		for pg, mf := range mfResp {

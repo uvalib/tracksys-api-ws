@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -36,15 +35,20 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	}
 
 	log.Printf("INFO: search tracksys for %s", queryTxt)
-	sql := fmt.Sprintf(`select id,pid,type,title,barcode,call_number from metadata
+	qSQL := fmt.Sprintf(`select id,pid,type,title,barcode,call_number from metadata
 			where title like {:qany} or barcode like {:q} or pid like {:q} or call_number like {:q} limit 500`)
-	q := svc.DB.NewQuery(sql)
+	q := svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"qany": fmt.Sprintf("%%%s%%", queryTxt), "q": fmt.Sprintf("%s%%", queryTxt)})
 	var mdResp []metadataSummary
 	err := q.All(&mdResp)
 	if err != nil {
-		log.Printf("WARNING: search failed: %s", err.Error())
-		c.String(http.StatusNotFound, "not found")
+		if err != sql.ErrNoRows {
+			log.Printf("INFO: search for %s returned no results", queryTxt)
+			c.String(http.StatusNotFound, "not found")
+		} else {
+			log.Printf("ERROR: search for %s failed: %s", queryTxt, err.Error())
+			c.String(http.StatusNotFound, "not found")
+		}
 		return
 	}
 
@@ -91,7 +95,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		log.Printf("INFO: %s is a master file. Metadata PID=%s", pid, newPID)
 		pid = newPID
 	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find masterfile %s: %s", pid, err.Error())
+		log.Printf("ERROR: metadata query to find masterfile %s failed: %s", pid, err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -115,6 +119,9 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		}
 		return
 	}
+
+	// Beyond this point, we have a valid metadata record in TrackSys. Any other
+	// issue found after this is an error and should return and log failure instead of not found
 
 	// Simple request for brief metadata on this item
 	if mdType == "brief" {
@@ -142,7 +149,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	if mdType == "marc" {
 		respBytes, err := svc.getMarc(resp)
 		if err != nil {
-			log.Printf("WARNING: Unable to get MARC for %s: %s", pid, err.Error())
+			log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			c.Header("Content-Type", "text/xml")
@@ -157,7 +164,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	if mdType == "fixedmarc" {
 		respBytes, err := svc.getFixedMARC(resp, clearCache)
 		if err != nil {
-			log.Printf("WARNING: Unable to get MARC for %s: %s", pid, err.Error())
+			log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			c.Header("Content-Type", "text/xml")
@@ -171,7 +178,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	if mdType == "mods" {
 		xml, err := svc.getMODS(resp, clearCache)
 		if err != nil {
-			log.Printf("WARNING: unable to get MODS for %s: %s", pid, err.Error())
+			log.Printf("ERROR: unable to get MODS for %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -186,7 +193,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	if mdType == "uvamap" {
 		uvaMapBytes, err := svc.getUVAMAP(resp, clearCache)
 		if err != nil {
-			log.Printf("WARNING: unable to get uvaMAP for %s: %s", resp.PID, err.Error())
+			log.Printf("ERROR: unable to get uvaMAP for %s: %s", resp.PID, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -202,7 +209,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	if mdType == "dpla" {
 		dplaBytes, err := svc.getDPLA(resp, clearCache)
 		if err != nil {
-			log.Printf("WARNING: unable to get DPLA for %s: %s", resp.PID, err.Error())
+			log.Printf("ERROR: unable to get DPLA for %s: %s", resp.PID, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -212,7 +219,30 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		return
 	}
 
+	log.Printf("ERROR: request for unsupported metadata type %s", mdType)
 	c.String(http.StatusBadRequest, "invalid metadata type")
+}
+
+func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
+	log.Printf("INFO: Get MARC for %s", md.PID)
+	marc := svc.getCache("marc", md.PID)
+	if marc != nil {
+		log.Printf("INFO: returning cached MARC")
+		return marc, nil
+	}
+
+	log.Printf("INFO: Get MARC from Sirsi")
+	re := regexp.MustCompile(`^u`)
+	cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
+	url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
+	respStr, err := svc.getAPIResponse(url)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Printf("INFO: Cache raw MARC for %s", md.PID)
+	svc.updateCache("marc", md.PID, respStr)
+	return respStr, nil
 }
 
 func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, error) {
@@ -275,8 +305,7 @@ func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error)
 		return []byte(md.DescMetadata.String), nil
 	}
 
-	log.Printf("WARNING: MODS metadata requested for unsupported metadata type: %s", md.Type)
-	return nil, errors.New("not found")
+	return nil, fmt.Errorf("unsupported metadata type %s", md.Type)
 }
 
 func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, error) {
@@ -297,7 +326,6 @@ func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, erro
 
 	uvaMapBytes, err := svc.saxonTransform(&payload)
 	if err != nil {
-		log.Printf("ERROR: modstouvamap for %s failed with %s.", md.PID, err.Error())
 		return nil, err
 	}
 
@@ -321,33 +349,10 @@ func (svc *ServiceContext) getDPLA(md metadata, clearCache bool) ([]byte, error)
 
 	dplaBytes, err := svc.saxonTransform(&payload)
 	if err != nil {
-		log.Printf("ERROR: uvamaptodpla for %s failed with %s.", md.PID, err.Error())
 		return nil, err
 	}
 
 	log.Printf("INFO: cache DPLA for %s", md.PID)
 	svc.updateCache("dpla", md.PID, dplaBytes)
 	return dplaBytes, nil
-}
-
-func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
-	log.Printf("INFO: Get MARC for %s", md.PID)
-	marc := svc.getCache("marc", md.PID)
-	if marc != nil {
-		log.Printf("INFO: returning cached MARC")
-		return marc, nil
-	}
-
-	log.Printf("INFO: Get MARC from Sirsi")
-	re := regexp.MustCompile(`^u`)
-	cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
-	url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
-	respStr, err := svc.getAPIResponse(url)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Printf("INFO: Cache raw MARC for %s", md.PID)
-	svc.updateCache("marc", md.PID, respStr)
-	return respStr, nil
 }
