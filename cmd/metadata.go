@@ -75,6 +75,10 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		c.String(http.StatusBadRequest, "type is required")
 		return
 	}
+	clearCache := false
+	if c.Query("nocache") != "" {
+		clearCache = true
+	}
 
 	// first, see if it is a masterfile pid and pull the metadata pid...
 	qSQL := `select m.pid from master_files f left outer join metadata m
@@ -142,7 +146,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	// of mods runs a transform on the marc to fix common problems.
 	// the result is cached and used as the source for the marc->mods transform
 	if mdType == "fixedmarc" {
-		respBytes, err := svc.getFixedMARC(resp)
+		respBytes, err := svc.getFixedMARC(resp, clearCache)
 		if err != nil {
 			log.Printf("WARNING: Unable to get MARC for %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -156,7 +160,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 
 	// Get MODS metadata (from cache if available)
 	if mdType == "mods" {
-		xml, err := svc.getMODS(resp)
+		xml, err := svc.getMODS(resp, clearCache)
 		if err != nil {
 			log.Printf("WARNING: unable to get MODS for %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -171,7 +175,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	// MARC errors. The result of that is transformed into MODS. Lastly, that MODS result is transformed
 	// into uvaMAP. Each step of the transform is cached and used to drive the next step
 	if mdType == "uvamap" {
-		uvaMapBytes, err := svc.getUVAMAP(resp)
+		uvaMapBytes, err := svc.getUVAMAP(resp, clearCache)
 		if err != nil {
 			log.Printf("WARNING: unable to get uvaMAP for %s: %s", resp.PID, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -187,7 +191,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	// MARC -> FixedMARC -> MODS -> uvaMAP -> DPLA
 	// As in other multi-step transforms, each step result is cached and drives the next step
 	if mdType == "dpla" {
-		dplaBytes, err := svc.getDPLA(resp)
+		dplaBytes, err := svc.getDPLA(resp, clearCache)
 		if err != nil {
 			log.Printf("WARNING: unable to get DPLA for %s: %s", resp.PID, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -202,7 +206,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	c.String(http.StatusBadRequest, "invalid metadata type")
 }
 
-func (svc *ServiceContext) getFixedMARC(md metadata) ([]byte, error) {
+func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, error) {
 	fixedMarc := svc.getCache("fixedmarc", md.PID)
 	if fixedMarc != nil {
 		log.Printf("INFO: returning cached FixedMARC")
@@ -212,7 +216,9 @@ func (svc *ServiceContext) getFixedMARC(md metadata) ([]byte, error) {
 	payload := url.Values{}
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, md.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
-	payload.Set("clear-stylesheet-cache", "yes")
+	if clearCache {
+		payload.Set("clear-stylesheet-cache", "yes")
+	}
 
 	log.Printf("INFO: run fixMarcErrors.xsl to cleanup metadata prior to transform to MODS on %s", md.PID)
 	bodyBytes, err := svc.saxonTransform(&payload)
@@ -226,7 +232,7 @@ func (svc *ServiceContext) getFixedMARC(md metadata) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-func (svc *ServiceContext) getMODS(md metadata) ([]byte, error) {
+func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error) {
 	log.Printf("INFO: Get MODS for PID %s", md.PID)
 	mods := svc.getCache("mods", md.PID)
 	if mods != nil {
@@ -239,7 +245,9 @@ func (svc *ServiceContext) getMODS(md metadata) ([]byte, error) {
 		payload := url.Values{}
 		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, md.PID))
 		payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
-		payload.Set("clear-stylesheet-cache", "yes")
+		if clearCache {
+			payload.Set("clear-stylesheet-cache", "yes")
+		}
 		payload.Set("PID", md.PID)
 		payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
 		payload.Set("previewURI", svc.getExemplarThumbURL(md.ID))
@@ -262,7 +270,7 @@ func (svc *ServiceContext) getMODS(md metadata) ([]byte, error) {
 	return nil, errors.New("not found")
 }
 
-func (svc *ServiceContext) getUVAMAP(md metadata) ([]byte, error) {
+func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, error) {
 	log.Printf("INFO: Get uvaMAP for PID %s", md.PID)
 	uvaMAP := svc.getCache("uvamap", md.PID)
 	if uvaMAP != nil {
@@ -274,7 +282,9 @@ func (svc *ServiceContext) getUVAMAP(md metadata) ([]byte, error) {
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=mods", svc.APIURL, md.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/modstouvamap", svc.APIURL))
 	payload.Set("PID", md.PID)
-	payload.Set("clear-stylesheet-cache", "yes")
+	if clearCache {
+		payload.Set("clear-stylesheet-cache", "yes")
+	}
 
 	uvaMapBytes, err := svc.saxonTransform(&payload)
 	if err != nil {
@@ -287,7 +297,7 @@ func (svc *ServiceContext) getUVAMAP(md metadata) ([]byte, error) {
 	return uvaMapBytes, nil
 }
 
-func (svc *ServiceContext) getDPLA(md metadata) ([]byte, error) {
+func (svc *ServiceContext) getDPLA(md metadata, clearCache bool) ([]byte, error) {
 	dpla := svc.getCache("dpla", md.PID)
 	if dpla != nil {
 		log.Printf("INFO: returning cached DPLA")
@@ -296,7 +306,9 @@ func (svc *ServiceContext) getDPLA(md metadata) ([]byte, error) {
 	payload := url.Values{}
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=uvamap", svc.APIURL, md.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/uvamaptodpla", svc.APIURL))
-	payload.Set("clear-stylesheet-cache", "yes")
+	if clearCache {
+		payload.Set("clear-stylesheet-cache", "yes")
+	}
 
 	dplaBytes, err := svc.saxonTransform(&payload)
 	if err != nil {
