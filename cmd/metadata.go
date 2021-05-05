@@ -90,6 +90,10 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	if err == nil {
 		log.Printf("INFO: %s is a master file. Metadata PID=%s", pid, newPID)
 		pid = newPID
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find masterfile %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	// Now get metadata details
@@ -102,8 +106,13 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	var resp metadata
 	err = q.One(&resp)
 	if err != nil {
-		log.Printf("WARNING: %s not found: %s", pid, err.Error())
-		c.String(http.StatusNotFound, "not found")
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: %s not found: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			log.Printf("WARNING: %s not found", pid)
+			c.String(http.StatusNotFound, "not found")
+		}
 		return
 	}
 

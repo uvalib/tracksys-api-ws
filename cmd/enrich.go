@@ -38,16 +38,21 @@ type enrichData struct {
 func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	key := c.Param("pid")
 	log.Printf("INFO: get enriched other metadata for PID %s", key)
-	sql := `select m.id, pid, collection_facet, educational_use, commercial_use, modifications, uri
+	qSQL := `select m.id, pid, collection_facet, educational_use, commercial_use, modifications, uri
 		from metadata m left outer join use_rights u on u.id = m.use_right_id where pid={:id}
 		and date_dl_ingest is not null`
-	q := svc.DB.NewQuery(sql)
+	q := svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"id": key})
 	var md basicMetadata
 	err := q.One(&md)
 	if err != nil {
-		log.Printf("WARNING: %s not found: %s", key, err.Error())
-		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: other PID %s not found for enriched metadata: %s", key, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			log.Printf("WARNING: other PID %s not found for enriched metadata", key)
+			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
+		}
 		return
 	}
 	var out struct {
@@ -74,17 +79,22 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	key := c.Param("key")
 	log.Printf("INFO: get enriched sirsi metadata for catalog key %s", key)
-	sql := `select m.id, pid, collection_facet, barcode, call_number,
+	qSQL := `select m.id, pid, collection_facet, barcode, call_number,
 		educational_use, commercial_use, modifications, uri
 		from metadata m left outer join use_rights u on u.id = m.use_right_id where catalog_key={:id}
 		and date_dl_ingest is not null order by call_number asc`
-	q := svc.DB.NewQuery(sql)
+	q := svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"id": key})
 	var mdRecs []basicMetadata
 	err := q.All(&mdRecs)
 	if err != nil {
-		log.Printf("WARNING: %s not found: %s", key, err.Error())
-		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: sirsi %s not found for enriched metadata: %s", key, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			log.Printf("WARNING: %s not found", key)
+			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
+		}
 		return
 	}
 	if len(mdRecs) == 0 {

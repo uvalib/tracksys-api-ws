@@ -75,12 +75,12 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	log.Printf("INFO: get summary for %s", pid)
 
 	// First try metadata...
-	sql := `select m.id,type,title,a.name as availability,date_dl_ingest,
+	qSQL := `select m.id,type,title,a.name as availability,date_dl_ingest,
 		ocr_language_hint,o.name as ocr_hint,ocr_candidate
 		from metadata m left outer join ocr_hints o on o.id = m.ocr_hint_id
 		left outer join availability_policies a on a.id = availability_policy_id
 		where m.pid={:pid}`
-	q := svc.DB.NewQuery(sql)
+	q := svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"pid": pid})
 	var mdResp metadataSummary
 	err := q.One(&mdResp)
@@ -117,15 +117,19 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 
 		c.JSON(http.StatusOK, out)
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (metadata) %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	// try master file...
-	sql = `select f.id,f.title,filename,text_source,transcription_text,m.pid as parent_pid,
+	qSQL = `select f.id,f.title,filename,text_source,transcription_text,m.pid as parent_pid,
 		ocr_language_hint, o.name as ocr_hint,ocr_candidate
 		from master_files f left outer join metadata m on m.id = f.metadata_id
 		left outer join ocr_hints o on o.id = m.ocr_hint_id
 		where f.pid={:pid}`
-	q = svc.DB.NewQuery(sql)
+	q = svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"pid": pid})
 	var mfResp masterFileSummary
 	err = q.One(&mfResp)
@@ -148,6 +152,10 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, out)
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (master_file) %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	// try component...
@@ -164,9 +172,13 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, out)
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (component) %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	log.Printf("WARNING: %s not found as metadata, master file nor component", pid)
+	log.Printf("WARNING: %s not found in database", pid)
 	c.String(http.StatusNotFound, "not found")
 }
 
@@ -207,8 +219,8 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 	log.Printf("INFO: get full text for %s", pid)
 	spacesRegex := regexp.MustCompile(`\s+`)
 
-	sql := `select id,title,description,transcription_text from master_files where pid={:pid}`
-	q := svc.DB.NewQuery(sql)
+	qSQL := `select id,title,description,transcription_text from master_files where pid={:pid}`
+	q := svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"pid": pid})
 	var mfResp masterFileSummary
 	err := q.One(&mfResp)
@@ -222,25 +234,33 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 		log.Printf("%s text returned for master file %s", txtType, pid)
 		c.String(http.StatusOK, spacesRegex.ReplaceAllString(out, " "))
 		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (masterfile) for text request %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
 
 	// Try a metadata record...
-	sql = `select id,type,title,call_number from metadata where pid={:pid}`
-	q = svc.DB.NewQuery(sql)
+	qSQL = `select id,type,title,call_number from metadata where pid={:pid}`
+	q = svc.DB.NewQuery(qSQL)
 	q.Bind(dbx.Params{"pid": pid})
 	var mdResp metadataSummary
 	err = q.One(&mdResp)
 	if err == nil {
 		unitID := c.Query("unit")
 		if unitID == "" {
-			sql := `select id from units where include_in_dl =1 and metadata_id={:id} limit 1`
-			q := svc.DB.NewQuery(sql)
+			q := svc.DB.NewQuery(`select id from units where include_in_dl =1 and metadata_id={:id} limit 1`)
 			q.Bind(dbx.Params{"id": mdResp.ID})
 			var uID int64
 			err := q.Row(&uID)
 			if err != nil {
-				log.Printf("WARNING: unable to find unit for text api call: %s", err.Error())
-				c.String(http.StatusNotFound, "not found")
+				if err != sql.ErrNoRows {
+					log.Printf("ERROR: metadata %s unit find failed for text api call: %s", pid, err.Error())
+					c.String(http.StatusInternalServerError, err.Error())
+				} else {
+					log.Printf("WARNING: unable to find unit for text api call")
+					c.String(http.StatusNotFound, "not found")
+				}
 				return
 			}
 			unitID = fmt.Sprintf("%d", uID)
@@ -278,6 +298,10 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 		}
 		log.Printf("INFO: returning transcription for metadata %s", pid)
 		c.String(http.StatusOK, out)
+		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find PID (metadata) for text request %s: %s", pid, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -371,16 +395,21 @@ func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 	}
 	err := q.One(&resp)
 	if err != nil {
-		sql := `select f.id,availability_policy_id from master_files f
+		qSQL := `select f.id,availability_policy_id from master_files f
 			inner join metadata m on m.id = f.metadata_id
 			inner join availability_policies a on a.id = m.availability_policy_id
 			where f.pid={:pid}`
-		q = svc.DB.NewQuery(sql)
+		q = svc.DB.NewQuery(qSQL)
 		q.Bind(dbx.Params{"pid": pid})
 		err = q.One(&resp)
 		if err != nil {
-			log.Printf("WARING: unable to find %s: %s", pid, err.Error())
-			c.String(http.StatusNotFound, "not found")
+			if err != sql.ErrNoRows {
+				log.Printf("ERROR: unable to availability for %s: %s", pid, err.Error())
+				c.String(http.StatusInternalServerError, err.Error())
+			} else {
+				log.Printf("WARNING: unable to find availability for %s", pid)
+				c.String(http.StatusNotFound, "not found")
+			}
 			return
 		}
 	}
@@ -395,6 +424,10 @@ func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 	err = q.Row(&rights)
 	if err == nil {
 		c.String(http.StatusOK, strings.ToLower(strings.Split(rights, " ")[0]))
+		return
+	} else if err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find availability policy %d: %s", resp.AvailID.Int64, err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 
