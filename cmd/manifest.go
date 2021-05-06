@@ -50,12 +50,8 @@ func (svc *ServiceContext) getManifest(c *gin.Context) {
 		unitID := c.Query("unit")
 		manifest, err := svc.getMetadataManifest(tgtID, unitID)
 		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("ERROR: Unable to get manifest for metadata %s: %s", pid, err.Error())
-				c.String(http.StatusInternalServerError, err.Error())
-			} else {
-				log.Printf("WARNING: manifest for metadata %s not found", pid)
-			}
+			log.Printf("ERROR: Unable to get manifest for metadata %s: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			c.JSON(http.StatusOK, manifest)
 		}
@@ -75,13 +71,8 @@ func (svc *ServiceContext) getManifest(c *gin.Context) {
 		log.Printf("INFO: %s is a component", pid)
 		manifest, err := svc.getComponentManifest(tgtID)
 		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("ERROR: Unable to get manifest for component %d: %s", tgtID, err.Error())
-				c.String(http.StatusInternalServerError, err.Error())
-			} else {
-				log.Printf("WARNING: cannot get get manifest for component %d", tgtID)
-				c.String(http.StatusNotFound, fmt.Sprintf("cannot get get manifest for component %d", tgtID))
-			}
+			log.Printf("ERROR: Unable to get manifest for component %d: %s", tgtID, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			c.JSON(http.StatusOK, manifest)
 		}
