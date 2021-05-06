@@ -194,7 +194,12 @@ func (svc *ServiceContext) getTextInfo(ID int64, field string) textInfo {
 	}
 	err := q.One(&resp)
 	if err != nil {
-		log.Printf("INFO: no text found for master_file %d", ID)
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: searching master_file %d (%s)", ID, err.Error())
+		} else {
+			log.Printf("INFO: no text found for master_file %d", ID)
+		}
+		// we should propagate the error correctly!!!
 		return textInfo{}
 	}
 	if !resp.Source.Valid {
@@ -282,8 +287,8 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 		err := q.All(&mfResp)
 		if err != nil {
 			if err != sql.ErrNoRows {
-				log.Printf("ERROR: unable to get  masterfiles for unit %s: %s", unitID, err.Error())
-				c.String(http.StatusNotFound, "not found")
+				log.Printf("ERROR: unable to get masterfiles for unit %s: %s", unitID, err.Error())
+				c.String(http.StatusInternalServerError, err.Error())
 			} else {
 				log.Printf("WARNING: no masterfiles found for unit %s", unitID)
 				c.String(http.StatusNotFound, "not found")
@@ -400,6 +405,12 @@ func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 	}
 	err := q.One(&resp)
 	if err != nil {
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: unable to find availability for %s: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
 		qSQL := `select f.id,availability_policy_id from master_files f
 			inner join metadata m on m.id = f.metadata_id
 			inner join availability_policies a on a.id = m.availability_policy_id
@@ -409,7 +420,7 @@ func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 		err = q.One(&resp)
 		if err != nil {
 			if err != sql.ErrNoRows {
-				log.Printf("ERROR: unable to availability for %s: %s", pid, err.Error())
+				log.Printf("ERROR: unable to find availability for %s: %s", pid, err.Error())
 				c.String(http.StatusInternalServerError, err.Error())
 			} else {
 				log.Printf("WARNING: unable to find availability for %s", pid)

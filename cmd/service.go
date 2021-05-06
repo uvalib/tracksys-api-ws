@@ -155,6 +155,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 	if err != nil {
 		if err != sql.ErrNoRows {
 			log.Printf("ERROR: unable to find exemplar for %d: %s", mdID, err.Error())
+			// WARNING... this is a real error, we should propagate it
 		} else {
 			log.Printf("WARNING: no exemplar set for %d", mdID)
 		}
@@ -167,8 +168,13 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 		q.Bind(dbx.Params{"id": mf.ClonedFromID.Int64})
 		err := q.One(&mf)
 		if err != nil {
-			log.Printf("ERROR: exemplar for %d is a clone, and original %d could not be found: %s",
-				mdID, mf.ClonedFromID.Int64, err.Error())
+			if err != sql.ErrNoRows {
+				log.Printf("ERROR: exemplar for %d is a clone, and original %d could not be found: %s",
+					mdID, mf.ClonedFromID.Int64, err.Error())
+				// WARNING... this is a real error, we should propagate it
+			} else {
+				log.Printf("WARNING: exemplar %d clone %d not found", mdID, mf.ClonedFromID.Int64)
+			}
 			return ""
 		}
 	}
@@ -179,7 +185,12 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 	orientationID := 0
 	rotations := []string{"0", "!0", "90", "180", "270"}
 	q.Bind(dbx.Params{"id": mf.ID})
-	q.Row(&orientationID)
+	err = q.Row(&orientationID)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("ERROR: unable to find rotation for %d: %s", mf.ID, err.Error())
+		// WARNING... this is a real error, we should propagate it
+		return ""
+	}
 	exemplarURL = fmt.Sprintf("%s/%s/full/!125,200/%s/default.jpg", svc.IIIFURL, mf.PID, rotations[orientationID])
 
 	return exemplarURL

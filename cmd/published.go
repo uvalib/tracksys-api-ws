@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,7 +12,7 @@ import (
 
 func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 	out := make([]string, 0)
-	sql := `
+	query := `
 	select distinct mc.pid as pid from metadata mc
 	inner join metadata mp on mc.parent_metadata_id = mp.id
 	where
@@ -19,10 +20,15 @@ func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 		mc.dpla = 1 and mc.date_dl_ingest is not null
 	order by mp.pid asc`
 	count := 0
-	q := svc.DB.NewQuery(sql)
+	q := svc.DB.NewQuery(query)
 	rows, err := q.Rows()
 	if err != nil {
-		log.Printf("ERROR: unable to get DPLA collections info: %s", err.Error())
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: unable to get DPLA collections info: %s", err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		log.Printf("WARNING: DPLA collections info not found")
 	} else {
 		for rows.Next() {
 			var pidRow string
@@ -37,14 +43,19 @@ func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 	log.Printf("INFO: found %d DPLA items in collections", count)
 
 	// Now get stand-alone DPLA flagged metadata and generate the records
-	sql = `select distinct m.pid from metadata m
+	query = `select distinct m.pid from metadata m
 	where parent_metadata_id = 0 and dpla = 1 and date_dl_ingest is not null
 	order by m.pid asc`
-	q = svc.DB.NewQuery(sql)
+	q = svc.DB.NewQuery(query)
 	count = 0
 	rows, err = q.Rows()
 	if err != nil {
-		log.Printf("ERROR: unable to get standalone DPLA items: %s", err.Error())
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: unable to get standalone DPLA items: %s", err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		log.Printf("WARNING: standalone DPLA items not found")
 	} else {
 		for rows.Next() {
 			var pidRow string
@@ -80,9 +91,9 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 	}
 
 	excludeKeys := make([]string, 0)
-	sql := `select distinct catalog_key from metadata where date_dl_ingest is not null and type = 'SirsiMetadata' and catalog_key <> ''`
+	query := `select distinct catalog_key from metadata where date_dl_ingest is not null and type = 'SirsiMetadata' and catalog_key <> ''`
 	if pubType == "other" {
-		sql = `select distinct pid from metadata where date_dl_ingest is not null and type = 'XmlMetadata'`
+		query = `select distinct pid from metadata where date_dl_ingest is not null and type = 'XmlMetadata'`
 	} else {
 		excludeSQL := `select distinct mp.catalog_key from metadata mc
 		inner join metadata mp on mc.parent_metadata_id = mp.id
@@ -91,7 +102,12 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 		q := svc.DB.NewQuery(excludeSQL)
 		rows, err := q.Rows()
 		if err != nil {
-			log.Printf("WARNING: couldn't get collection cat keys: %s", err.Error())
+			if err != sql.ErrNoRows {
+				log.Printf("ERROR: unable to get collection cat keys: %s", err.Error())
+				c.String(http.StatusInternalServerError, err.Error())
+				return
+			}
+			log.Printf("WARNING: collection cat keys not found")
 		} else {
 			for rows.Next() {
 				var ck string
@@ -102,11 +118,15 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 			}
 		}
 	}
-	q := svc.DB.NewQuery(sql)
+	q := svc.DB.NewQuery(query)
 	rows, err := q.Rows()
 	if err != nil {
-		log.Printf("ERROR: unable to get virgo-published %s items: %s", pubType, err.Error())
-		return
+		if err != sql.ErrNoRows {
+			log.Printf("ERROR: unable to get virgo-published %s items: %s", pubType, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+		log.Printf("WARNING: virgo-published %s items not found", pubType)
 	}
 
 	out := publishedPIDs{ItemIDs: make([]string, 0)}

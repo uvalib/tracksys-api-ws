@@ -43,10 +43,10 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	err := q.All(&mdResp)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("INFO: search for %s returned no results", queryTxt)
-			c.String(http.StatusNotFound, "not found")
-		} else {
 			log.Printf("ERROR: search for %s failed: %s", queryTxt, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			log.Printf("INFO: search for %s returned no results", queryTxt)
 			c.String(http.StatusNotFound, "not found")
 		}
 		return
@@ -115,7 +115,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			log.Printf("WARNING: %s not found", pid)
-			c.String(http.StatusNotFound, "not found")
+			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
 		}
 		return
 	}
