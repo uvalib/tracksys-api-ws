@@ -140,7 +140,7 @@ func (svc *ServiceContext) describeService(c *gin.Context) {
 	c.File("./templates/describe.json")
 }
 
-func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
+func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
 	exemplarURL := ""
 	qSQL := `select id,pid,original_mf_id from master_files where metadata_id={:id} and exemplar=1 limit 1`
 	q := svc.DB.NewQuery(qSQL)
@@ -153,13 +153,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 	}
 	err := q.One(&mf)
 	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: unable to find exemplar for %d: %s", mdID, err.Error())
-			// WARNING... this is a real error, we should propagate it
-		} else {
-			log.Printf("WARNING: no exemplar set for %d", mdID)
-		}
-		return ""
+		return "", err
 	}
 
 	// If ClonedFromID is set, this MF is cloned. Must use original MF for exemplar
@@ -168,32 +162,24 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) string {
 		q.Bind(dbx.Params{"id": mf.ClonedFromID.Int64})
 		err := q.One(&mf)
 		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("ERROR: exemplar for %d is a clone, and original %d could not be found: %s",
-					mdID, mf.ClonedFromID.Int64, err.Error())
-				// WARNING... this is a real error, we should propagate it
-			} else {
-				log.Printf("WARNING: exemplar %d clone %d not found", mdID, mf.ClonedFromID.Int64)
-			}
-			return ""
+			// a missing original for a clone is always an error and must be logged as such
+			log.Printf("ERROR: exemplar for %d is a clone, and original %d could not be found: %s",
+				mdID, mf.ClonedFromID.Int64, err.Error())
+			return "", err
 		}
 	}
 
 	// orientation is enum type: none: 0, flip_y_axis: 1, rotate90: 2, rotate180: 3, rotate270
+	// NOTE: orietation is optional and only a handful of items will have this data.
 	qSQL = `select orientation from image_tech_meta where master_file_id={:id} limit 1`
 	q = svc.DB.NewQuery(qSQL)
 	orientationID := 0
 	rotations := []string{"0", "!0", "90", "180", "270"}
 	q.Bind(dbx.Params{"id": mf.ID})
-	err = q.Row(&orientationID)
-	if err != nil && err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find rotation for %d: %s", mf.ID, err.Error())
-		// WARNING... this is a real error, we should propagate it
-		return ""
-	}
+	q.Row(&orientationID)
 	exemplarURL = fmt.Sprintf("%s/%s/full/!125,200/%s/default.jpg", svc.IIIFURL, mf.PID, rotations[orientationID])
 
-	return exemplarURL
+	return exemplarURL, nil
 }
 
 func (svc *ServiceContext) saxonTransform(payload *url.Values) ([]byte, error) {

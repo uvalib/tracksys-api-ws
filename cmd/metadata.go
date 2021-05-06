@@ -137,7 +137,12 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 		}
 		out := jsonOut{PID: resp.PID, Title: resp.Title, CallNumber: resp.CallNumber.String,
 			CatalogKey: resp.CatalogKey.String, Creator: resp.Creator.String, RightsURI: resp.RightsURI}
-		out.ExemplarURL = svc.getExemplarThumbURL(resp.ID)
+
+		// exemplar is only required if an item is published. Many items will not have an exemplar set
+		out.ExemplarURL, err = svc.getExemplarThumbURL(resp.ID)
+		if err != nil {
+			log.Printf("WARNING: brief metadata for %s is missing an exemplar: %s", pid, err)
+		}
 		rs := "Find more information about permission to use the library's materials at https://www.library.virginia.edu/policies/use-of-materials."
 		out.RightsStatement = fmt.Sprintf("%s\n%s", resp.Rights, rs)
 		log.Printf("INFO: successful request for brief metadata for %s", resp.PID)
@@ -289,7 +294,10 @@ func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error)
 		}
 		payload.Set("PID", md.PID)
 		payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
-		payload.Set("previewURI", svc.getExemplarThumbURL(md.ID))
+		// notes: don't care about this error. the preview URI going away in the next rev
+		// of the stylesheet and this code will no longer be needed
+		uri, _ := svc.getExemplarThumbURL(md.ID)
+		payload.Set("previewURI", uri)
 		payload.Set("useRightsURI", md.RightsURI)
 		payload.Set("barcode", md.Barcode.String)
 		mods, err := svc.saxonTransform(&payload)

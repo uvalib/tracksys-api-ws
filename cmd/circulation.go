@@ -53,11 +53,11 @@ func (svc *ServiceContext) getCirculationData(c *gin.Context) {
 		if err != sql.ErrNoRows {
 			log.Printf("ERROR: unable to get circulation report: %s", err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
-			return
 		} else {
 			log.Printf("WARNING: unable to get circulation report")
 			c.String(http.StatusNotFound, "unable to get circulation report")
 		}
+		return
 	}
 	c.JSON(http.StatusOK, out)
 }

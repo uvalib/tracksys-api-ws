@@ -62,12 +62,20 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	out.PID = md.PID
 	out.PDF = svc.PDFServiceURL
 	out.Uses = getUses(&md)
-	out.ExemplarURL = svc.getExemplarThumbURL(md.ID)
+
+	// published items are required to have an exemplar
+	out.ExemplarURL, err = svc.getExemplarThumbURL(md.ID)
+	if err != nil {
+		log.Printf("ERROR: %s", err)
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	out.Collection = md.CollectionFacet.String
 	iiifURL, err := svc.getIIIFManifestURL(md.PID)
 	if err != nil {
 		log.Printf("ERROR: Unable to get IIIF manifest for %s: %s", md.PID, err.Error())
-		c.String(http.StatusNotFound, "iiif manifest not found")
+		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	out.IIIFManURL = iiifURL
@@ -117,11 +125,19 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 		iiifURL, err := svc.getIIIFManifestURL(md.PID)
 		if err != nil {
 			log.Printf("ERROR: Unable to get IIIF manifest for %s: %s", md.PID, err.Error())
-			c.String(http.StatusNotFound, "iiif manifest not found")
+			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 		item.IIIFManURL = iiifURL
-		item.ExemplarURL = svc.getExemplarThumbURL(md.ID)
+
+		// published items are required to have an exemplar
+		item.ExemplarURL, err = svc.getExemplarThumbURL(md.ID)
+		if err != nil {
+			log.Printf("ERROR: %s", err)
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
 		item.Uses = getUses(&md)
 		out.Items = append(out.Items, item)
 	}
