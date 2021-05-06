@@ -41,14 +41,17 @@ func (svc *ServiceContext) getManifest(c *gin.Context) {
 
 	// First see if the PID is for a metadata record...
 	log.Printf("INFO: get manifest for %s", pid)
-	q := svc.DB.NewQuery("select id from metadata where pid={:pid}")
+	q := svc.DB.NewQuery("select id,type from metadata where pid={:pid}")
 	q.Bind(dbx.Params{"pid": pid})
-	var tgtID int64
-	err := q.Row(&tgtID)
+	var dbInfo struct {
+		ID   int64  `db:"id"`
+		Type string `db:"type"`
+	}
+	err := q.One(&dbInfo)
 	if err == nil {
 		log.Printf("INFO: %s is a metadata record", pid)
 		unitID := c.Query("unit")
-		manifest, err := svc.getMetadataManifest(tgtID, unitID)
+		manifest, err := svc.getMetadataManifest(dbInfo.ID, dbInfo.Type, unitID)
 		if err != nil {
 			log.Printf("ERROR: Unable to get manifest for metadata %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -66,6 +69,7 @@ func (svc *ServiceContext) getManifest(c *gin.Context) {
 	log.Printf("INFO: %s is not a metadata record; trying components", pid)
 	q = svc.DB.NewQuery("select id from components where pid={:pid}")
 	q.Bind(dbx.Params{"pid": pid})
+	var tgtID int64
 	err = q.Row(&tgtID)
 	if err == nil {
 		log.Printf("INFO: %s is a component", pid)
@@ -104,7 +108,8 @@ func (svc *ServiceContext) getComponentManifest(cID int64) (*[]manifestData, err
 	return svc.generateManifest(&masterFiles)
 }
 
-func (svc *ServiceContext) getMetadataManifest(ID int64, unitID string) (*[]manifestData, error) {
+func (svc *ServiceContext) getMetadataManifest(ID int64, mdType string, unitID string) (*[]manifestData, error) {
+	log.Printf("INFO: get masterfiles manifest for %s:%d", mdType, ID)
 	var out []masterFileData
 	sql := `select m.id,pid,filename,title,description,exemplar,text_source,original_mf_id,
 		width,height,orientation from master_files m `
@@ -116,6 +121,12 @@ func (svc *ServiceContext) getMetadataManifest(ID int64, unitID string) (*[]mani
 			where unit_id={:uid} order by filename asc`
 		q = svc.DB.NewQuery(sql)
 		q.Bind(dbx.Params{"mid": ID, "uid": unitID})
+	} else if mdType == "ExternalMetadata" {
+		log.Printf("INFO: external metadata; including all master files")
+		sql += ` inner join image_tech_meta t on t.master_file_id = m.id
+				where m.metadata_id={:mid} order by filename asc`
+		q = svc.DB.NewQuery(sql)
+		q.Bind(dbx.Params{"mid": ID})
 	} else {
 		log.Printf("INFO: only including masterfiles from units in the DL")
 		sql += ` inner join units u on u.id = m.unit_id
