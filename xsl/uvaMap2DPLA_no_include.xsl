@@ -224,71 +224,14 @@
       <!-- Identifier -->
       <!-- Select most appropriate identifier -->
       <xsl:choose>
-        <xsl:when test="*:field[matches(@name, '^(identifier)$')]">
-          <xsl:choose>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), '(metadata|repository) pid')][not(@invalid = 'yes')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), '(metadata|repository) pid')][not(@invalid = 'yes')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), '(metadata|repository) pid')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), '(metadata|repository) pid')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'virgo')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'virgo')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(sourceRecordIdentifier)$')][matches(normalize-space(lower-case(@type)), 'ssid')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(sourceRecordIdentifier)$')][matches(normalize-space(lower-case(@type)), 'ssid')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'artstorid')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'artstorid')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'file ?name')][not(@invalid = 'yes')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'file ?name')][not(@invalid = 'yes')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'file ?name')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'file ?name')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'master ?file p?id')][not(@invalid = 'yes')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'master ?file p?id')][not(@invalid = 'yes')][1]"
-              />
-            </xsl:when>
-            <xsl:when
-              test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'master ?file p?id')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), 'master ?file p?id')][1]"
-              />
-            </xsl:when>
-            <xsl:when test="*:field[matches(@name, '^(identifier)$')][not(@invalid = 'yes')]">
-              <xsl:apply-templates
-                select="*:field[matches(@name, '^(identifier)$')][not(@invalid = 'yes')][1]"/>
-            </xsl:when>
-            <xsl:otherwise>
-              <xsl:apply-templates select="*:field[matches(@name, '^(identifier)$')][1]"/>
-            </xsl:otherwise>
-          </xsl:choose>
+        <!-- PID -->
+        <xsl:when
+          test="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), '^pid$')]">
+          <xsl:apply-templates
+            select="*:field[matches(@name, '^(identifier)$')][matches(normalize-space(lower-case(@type)), '^pid$')][1]"
+          />
         </xsl:when>
+        <!-- Original identifier -->
         <xsl:when test="*:field[matches(@name, '^(orig_identifier)$')][not(@invalid = 'yes')]">
           <xsl:apply-templates
             select="*:field[matches(@name, '^(orig_identifier)$')][not(@invalid = 'yes')][1]"/>
@@ -296,6 +239,7 @@
         <xsl:when test="*:field[matches(@name, '^(orig_identifier)$')]">
           <xsl:apply-templates select="*:field[matches(@name, '^(orig_identifier)$')][1]"/>
         </xsl:when>
+        <!-- Host identifer; e.g., collection -->
         <xsl:when test="*:field[matches(@name, '^(host_identifier)$')][not(@invalid = 'yes')]">
           <xsl:apply-templates
             select="*:field[matches(@name, '^(host_identifier)$')][not(@invalid = 'yes')][1]"/>
@@ -303,17 +247,27 @@
         <xsl:when test="*:field[matches(@name, '^(host_identifier)$')]">
           <xsl:apply-templates select="*:field[matches(@name, '^(host_identifier)$')][1]"/>
         </xsl:when>
+        <!-- Source record identifier; e.g., Sirsi record number -->
         <xsl:when
           test="*:field[matches(@name, '^(sourceRecordIdentifier)$')][not(@invalid = 'yes')]">
           <xsl:apply-templates
             select="*:field[matches(@name, '^(sourceRecordIdentifier)$')][not(@invalid = 'yes')][1]"
           />
         </xsl:when>
-        <xsl:when test="*:field[matches(@name, '^(oclcNumber)$')]">
-          <xsl:apply-templates select="*:field[matches(@name, '^(oclcNumber)$')]"/>
-        </xsl:when>
         <xsl:when test="*:field[matches(@name, '^(sourceRecordIdentifier)$')]">
           <xsl:apply-templates select="*:field[matches(@name, '^(sourceRecordIdentifier)$')][1]"/>
+        </xsl:when>
+        <!-- OCLC number -->
+        <xsl:when test="*:field[matches(@name, '^(oclcNumber)$')][not(@invalid = 'yes')]">
+          <xsl:apply-templates
+            select="*:field[matches(@name, '^(oclcNumber)$')][not(@invalid = 'yes')][1]"/>
+        </xsl:when>
+        <xsl:when test="*:field[matches(@name, '^(oclcNumber)$')]">
+          <xsl:apply-templates select="*:field[matches(@name, '^(oclcNumber)$')][1]"/>
+        </xsl:when>
+        <!-- Item ID/barcode -->
+        <xsl:when test="*:field[matches(@name, '^(itemID)$')]">
+          <xsl:apply-templates select="*:field[matches(@name, '^(itemID)$')][1]"/>
         </xsl:when>
       </xsl:choose>
 
@@ -724,7 +678,7 @@
 
   <!-- Identifier -->
   <xsl:template
-    match="*:field[matches(@name, '^(identifier|sourceRecordIdentifier|host_identifier|orig_identifier|oclcNumber)$')]">
+    match="*:field[matches(@name, '^(identifier|sourceRecordIdentifier|host_identifier|orig_identifier|oclcNumber|itemID)$')]">
     <dcterms:identifier>
       <xsl:value-of select="normalize-space(.)"/>
     </dcterms:identifier>
