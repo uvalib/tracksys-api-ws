@@ -3,11 +3,18 @@
   xmlns:mods="http://www.loc.gov/mods/v3" xmlns:xs="http://www.w3.org/2001/XMLSchema"
   xmlns:xlink="http://www.w3.org/1999/xlink" exclude-result-prefixes="mods xs" version="2.0">
 
+  <!-- This stylesheet is based on mods2uvaMAP.xsl -->
+  <!-- It has been modified in the following ways:
+    1) references to external stylesheets have been physically included;
+    2) code for determing the PID from the filename of the document being processed
+       is disabled because the SaxonServlet chokes on it; and
+    3) code for getting a PID, rights, and URI info from external file is disabled
+       because the SaxonServlet chokes on it.
+  -->
+
   <xsl:output method="xml" encoding="UTF-8" indent="yes" media-type="text/xml"
     omit-xml-declaration="no" standalone="no"/>
   <xsl:strip-space elements="*"/>
-
-  <xsl:param name="PID" select="''"/>
 
   <!--<xsl:import href="marcCarrierMap.xsl"/>-->
   <!-- MARC - RDA Carrier Map -->
@@ -8469,8 +8476,26 @@
   <!-- PARAMETERS                                                              -->
   <!-- ======================================================================= -->
 
-  <!-- Set to 'true' for items that have been locally digitized  -->
-  <xsl:param name="DL_digitized" select="'false'"/>
+  <!-- Indicates local digitization  -->
+  <xsl:param name="reformattedDigital" select="'true'"/>
+
+  <!-- Digital Library persistent identifier -->
+  <xsl:param name="PID" select="''"/>
+
+  <!-- URI for a preview -->
+  <xsl:param name="previewURI" select="''"/>
+
+  <!-- TrackSys ID for digitization unit -->
+  <xsl:param name="tracksysUnitID" select="''"/>
+
+  <!-- TrackSys ID for metadata -->
+  <xsl:param name="tracksysMetaID" select="''"/>
+
+  <!-- URI representation of usage rights -->
+  <xsl:param name="useRightsURI" select="''"/>
+
+  <!-- Name of external file containing PID, preview, and usage rights info -->
+  <!--<xsl:param name="extraMetadataFile" select="''"/>-->
 
   <!-- ======================================================================= -->
   <!-- GLOBAL VARIABLES                                                        -->
@@ -8483,7 +8508,7 @@
 
   <!-- program version -->
   <xsl:variable name="progVersion">
-    <xsl:text>2.04</xsl:text>
+    <xsl:text>3.0</xsl:text>
   </xsl:variable>
 
   <!-- new line -->
@@ -8497,27 +8522,13 @@
       <xsl:when test="normalize-space($PID) ne ''">
         <xsl:value-of select="$PID"/>
       </xsl:when>
-      <!-- PID in identifier/@type or @displayLabel-->
-      <!-- Privilege 'metadata pid' over just 'pid' -->
-      <xsl:when test="*:mods/*:identifier[matches(@type, 'metadata pid', 'i')]">
-        <xsl:value-of select="*:mods/*:identifier[matches(@type, 'metadata pid', 'i')][1]"/>
-      </xsl:when>
-      <xsl:when test="*:mods/*:identifier[matches(@displayLabel, 'metadata pid', 'i')]">
-        <xsl:value-of select="*:mods/*:identifier[matches(@displayLabel, 'metadata pid', 'i')][1]"/>
-      </xsl:when>
-      <xsl:when test="*:mods/*:identifier[matches(@type, 'pid', 'i')]">
-        <xsl:value-of select="*:mods/*:identifier[matches(@type, 'pid', 'i')][1]"/>
-      </xsl:when>
-      <xsl:when test="*:mods/*:identifier[matches(@displayLabel, 'pid', 'i')]">
-        <xsl:value-of select="*:mods/*:identifier[matches(@displayLabel, 'pid', 'i')][1]"/>
-      </xsl:when>
       <!-- PID in input file name -->
-      <!-- <xsl:otherwise>
+      <!--<xsl:otherwise>
         <xsl:variable name="fileName">
-          <xsl:value-of select="tokenize(document-uri(.), '/')[last()]"/>
+          <xsl:value-of select="tokenize(document-uri(), '/')[last()]"/>
         </xsl:variable>
         <xsl:value-of select="replace(replace($fileName, '-mods.xml$', ''), '_', ':')"/>
-      </xsl:otherwise> -->
+      </xsl:otherwise>-->
     </xsl:choose>
   </xsl:variable>
 
@@ -8542,15 +8553,25 @@
 
   <!-- Determine current place in hierarchy: surrogate, orig, host -->
   <xsl:template name="whereAmI">
+
     <xsl:choose>
-      <!-- Locally digitized -->
+      <xsl:when test="ancestor::*:relatedItem[matches(@type, 'host')]">
+        <xsl:text>host_</xsl:text>
+      </xsl:when>
+      <xsl:when test="ancestor::*:relatedItem[matches(@type, 'original')]">
+        <xsl:text>orig_</xsl:text>
+      </xsl:when>
+    </xsl:choose>
+
+    <!--<xsl:choose>
+      <!-\- Locally digitized -\->
       <xsl:when
-        test="$DL_digitized = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
+        test="$reformattedDigital = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
         <xsl:if test="not(ancestor::*:relatedItem)">
           <xsl:text>orig_</xsl:text>
         </xsl:if>
       </xsl:when>
-      <!--  NOT Digitized -->
+      <!-\-  NOT Digitized -\->
       <xsl:otherwise>
         <xsl:choose>
           <xsl:when test="ancestor::*:relatedItem[matches(@type, 'host')]">
@@ -8561,7 +8582,7 @@
           </xsl:when>
         </xsl:choose>
       </xsl:otherwise>
-    </xsl:choose>
+    </xsl:choose>-->
   </xsl:template>
 
   <!-- Copy @authority and @displayLabel of top-level elements -->
@@ -8796,18 +8817,17 @@
 
   <!-- Remove @xsi:schemaLocation on MODS element -->
   <xsl:template match="*:mods" mode="prepMODS">
-    <!--<xsl:message>PID2='<xsl:value-of select="$PID2"/>'</xsl:message>-->
     <xsl:copy>
       <xsl:apply-templates select="@*[not(matches(local-name(), 'schemaLocation'))]" mode="prepMODS"/>
       <xsl:apply-templates mode="prepMODS"/>
     </xsl:copy>
   </xsl:template>
 
-  <!-- Remove empty elements and attributes that don't have content -->
+  <!-- Remove elements and attributes that don't have content -->
   <xsl:template match="@*[normalize-space(.) eq ''] | node()[normalize-space(.) eq '']"
     mode="prepMODS"/>
 
-  <!-- Remove redundant attributes -->
+  <!-- Remove unnecessary namespace attributes -->
   <xsl:template match="@*[matches(name(), 'xmlns:date|xmlns:fn')]" mode="prepMODS"/>
 
   <!-- Combine start/end dates in a single date element -->
@@ -8850,7 +8870,6 @@
             <xsl:element name="{$elementName}" xmlns="http://www.loc.gov/mods/v3">
               <xsl:apply-templates
                 select="@*[not(matches(local-name(), 'keyDate|point|qualifier'))]"/>
-              <!--<xsl:apply-templates select="@encoding"/>-->
               <xsl:choose>
                 <!-- Already has @keyDate -->
                 <xsl:when test="matches(., '\d') and @keyDate">
@@ -8955,7 +8974,7 @@
           <xsl:apply-templates select="@encoding" mode="prepMODS"/>
         </xsl:otherwise>
       </xsl:choose>
-      <xsl:apply-templates/>
+      <xsl:apply-templates mode="prepMODS"/>
     </xsl:copy>
   </xsl:template>
 
@@ -8970,7 +8989,7 @@
     </xsl:copy>
   </xsl:template>
 
-  <!-- restrictions imposed on access to [or use of] a resource -->
+  <!-- Normalize accessCondition -->
   <xsl:template match="*:accessCondition" mode="prepMODS">
     <accessCondition xmlns="http://www.loc.gov/mods/v3">
       <xsl:copy-of select="@type"/>
@@ -8979,6 +8998,7 @@
           <xsl:value-of select="normalize-space(@displayLabel)"/>
         </xsl:attribute>
       </xsl:if>
+      <!-- Map content to URI -->
       <xsl:variable name="href">
         <xsl:choose>
           <xsl:when
@@ -9031,6 +9051,9 @@
           <xsl:when test="matches(normalize-space(.), '^http[^\s]+$')">
             <xsl:value-of select="normalize-space(.)"/>
           </xsl:when>
+          <xsl:otherwise>
+            <xsl:value-of select="@xlink:href"/>
+          </xsl:otherwise>
         </xsl:choose>
       </xsl:variable>
       <xsl:if test="normalize-space($href) ne ''">
@@ -9038,6 +9061,7 @@
           <xsl:value-of select="$href"/>
         </xsl:attribute>
       </xsl:if>
+      <!-- Map URI to content -->
       <xsl:choose>
         <xsl:when test="matches($href, 'http://rightsstatements.org/vocab/InC/1.0/')">In
           Copyright</xsl:when>
@@ -9338,7 +9362,7 @@
           </field>
         </xsl:if>
 
-        <!-- Sort Title = w/o leading article -->
+        <!-- Sort Title = primary title w/o leading article -->
         <!-- Capitalize first word -->
         <xsl:if
           test="*:titleInfo[matches(@usage, 'primary') or not(matches(@type, 'abbreviated|alternative|translated|uniform'))][not(normalize-space(.) eq '')]">
@@ -9414,26 +9438,40 @@
           </field>
         </xsl:for-each>
 
-        <!-- Names & Identifiers -->
-        <xsl:apply-templates select="*:name | *:identifier" mode="uvaMAP"/>
+        <!-- Names -->
+        <xsl:apply-templates select="*:name" mode="uvaMAP"/>
 
-        <!-- Add metadata PID if it's not already present -->
-        <!-- PID parameter *DOES NOT* override PID in the file -->
-        <xsl:if test="
-            not(*:identifier[matches(@displayLabel, 'pid|record displayed in virgo', 'i')]) and
-            not(*:identifier[matches(@type, 'pid|record displayed in virgo', 'i')]) and
-            matches($PID2, '^[^:]+:\d+$')">
-          <field name="identifier" type="Metadata PID">
-            <xsl:value-of select="$PID2"/>
-          </field>
-        </xsl:if>
-
+        <!-- Identifiers -->
         <!-- OCLC Number -->
         <xsl:for-each select="*:recordInfo/*:recordIdentifier[matches(@source, 'oco?lc', 'i')]">
           <field name="oclcNumber">
             <xsl:value-of select="normalize-space(.)"/>
           </field>
         </xsl:for-each>
+
+        <!-- Identifiers other than OCLC number -->
+        <xsl:apply-templates select="*:identifier" mode="uvaMAP"/>
+
+        <!-- Insert PID -->
+        <xsl:if test="normalize-space($PID2) != ''">
+          <field name="identifier" type="PID">
+            <xsl:value-of select="$PID2"/>
+          </field>
+        </xsl:if>
+
+        <!-- Insert TrackSys Metadata PID -->
+        <xsl:if test="normalize-space($tracksysMetaID) != ''">
+          <field name="identifier" type="TrackSys Metadata PID">
+            <xsl:value-of select="$tracksysMetaID"/>
+          </field>
+        </xsl:if>
+
+        <!-- Insert TrackSys Unit ID -->
+        <xsl:if test="normalize-space($tracksysUnitID) != ''">
+          <field name="identifier" type="TrackSys Unit ID">
+            <xsl:value-of select="$tracksysMetaID"/>
+          </field>
+        </xsl:if>
 
         <!-- Genre -->
         <!-- De-dupe values of genre and typeOfResource elements that are not MODS 3.6 compliant -->
@@ -9502,11 +9540,11 @@
           </xsl:for-each>
         </xsl:if>
 
-        <!-- Abstract/Summary, AccessCondition, etc. -->
+        <!-- Abstract/Summary, etc. -->
         <xsl:apply-templates select="
-            *:abstract | *:accessCondition | *:classification |
-            *:language | *:relatedItem[matches(@type, 'otherFormat')] | *:subject/*:cartographics |
-            *:targetAudience" mode="uvaMAP"/>
+            *:abstract | *:accessCondition | *:classification | *:language | *:relatedItem[matches(@type, 'otherFormat')] |
+            *:subject/*:cartographics | *:targetAudience" mode="uvaMAP"/>
+
         <!-- Sort location on shelfLocator -->
         <xsl:apply-templates select="*:location" mode="uvaMAP">
           <xsl:sort select="descendant::*:shelfLocator"/>
@@ -9516,16 +9554,224 @@
         <xsl:apply-templates
           select="*:note[not(matches(@type, '59[1-9]')) and normalize-space(.) ne '']" mode="uvaMAP"/>
 
-        <!-- Add rights statement and URIs from external file -->
-        <xsl:variable name="pidMatchExact">
-          <xsl:value-of select="concat('^', normalize-space($PID2), '$')"/>
-        </xsl:variable>
-        <xsl:variable name="accessConditionPresent">
-          <xsl:choose>
-            <xsl:when test="*:accessCondition">true</xsl:when>
-            <xsl:otherwise>false</xsl:otherwise>
-          </xsl:choose>
-        </xsl:variable>
+        <!-- Usage rights info -->
+        <xsl:choose>
+          <!-- Add rights statement based on $useRightsURI parameter -->
+          <xsl:when test="normalize-space($useRightsURI) != ''">
+            <field name="useRestrict">
+              <xsl:attribute name="valueURI">
+                <xsl:value-of select="$useRightsURI"/>
+              </xsl:attribute>
+              <!-- Map $useRightsURI to a human-readable value -->
+              <xsl:choose>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/InC/1.0/')">In
+                  Copyright</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/InC-OW-EU/1.0/')"
+                  >In Copyright - EU Orphan Work</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/InC-EDU/1.0/')">In
+                  Copyright - Educational Use Permitted</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/InC-NC/1.0/')">In
+                  Copyright - Non-Commercial Use Permitted</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/InC-RUU/1.0/')">In
+                  Copyright - Rights-holder(s) Unlocatable or Unidentifiable</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/NoC-CR/1.0/')">No
+                  Copyright - Contractual Restrictions</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/NoC-NC/1.0/')">No
+                  Copyright - Non-Commercial Use Only</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/NoC-OKLR/1.0/')"
+                  >No Copyright - Other Known Legal Restrictions</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/NoC-US/1.0/')">No
+                  Copyright - United States</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/CNE/1.0/')"
+                  >Copyright Not Evaluated</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/UND/1.0/')"
+                  >Copyright Undetermined</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'http://rightsstatements.org/vocab/NKC/1.0/')">No
+                  Known Copyright</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nd/4.0/legalcode')"
+                  >Attribution</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nd/4.0/legalcode')"
+                  >CC BY-ND</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nc/4.0/legalcode')"
+                  >Attribution-NonCommercial</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nc/4.0/legalcode')"
+                  >CC BY-NC</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode')"
+                  >Attribution-NonCommercial-ShareAlike</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode')"
+                  >CC BY-NC-SA</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode')"
+                  >Attribution-NonCommercial-NoDerivs</xsl:when>
+                <xsl:when
+                  test="matches($useRightsURI, 'https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode')"
+                  >CC BY-NC-ND</xsl:when>
+                <xsl:otherwise>
+                  <xsl:value-of select="$useRightsURI"/>
+                </xsl:otherwise>
+              </xsl:choose>
+            </field>
+          </xsl:when>
+          <!-- Add rights statement from external file -->
+          <!--<xsl:when test="doc-available($extraMetadataFile)">
+            <xsl:variable name="pidMatchExact">
+              <xsl:value-of select="concat('^', normalize-space($PID2), '$')"/>
+            </xsl:variable>
+            <xsl:for-each
+              select="doc($extraMetadataFile)//*:pid[matches(normalize-space(.), $pidMatchExact)]">
+              <xsl:if test="normalize-space(../*:rsUrl) ne ''">
+                <field name="useRestrict">
+                  <xsl:attribute name="valueURI">
+                    <xsl:value-of select="../*:rsUrl"/>
+                  </xsl:attribute>
+                  <!-\- Map rsUrl to a human-readable value -\->
+                  <xsl:choose>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC/1.0/')">In
+                      Copyright</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-OW-EU/1.0/')"
+                      >In Copyright - EU Orphan Work</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-EDU/1.0/')"
+                      >In Copyright - Educational Use Permitted</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-NC/1.0/')">In
+                      Copyright - Non-Commercial Use Permitted</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/InC-RUU/1.0/')"
+                      >In Copyright - Rights-holder(s) Unlocatable or Unidentifiable</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-CR/1.0/')">No
+                      Copyright - Contractual Restrictions</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-NC/1.0/')">No
+                      Copyright - Non-Commercial Use Only</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-OKLR/1.0/')"
+                      >No Copyright - Other Known Legal Restrictions</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NoC-US/1.0/')">No
+                      Copyright - United States</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/CNE/1.0/')"
+                      >Copyright Not Evaluated</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/UND/1.0/')"
+                      >Copyright Undetermined</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'http://rightsstatements.org/vocab/NKC/1.0/')">No
+                      Known Copyright</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nd/4.0/legalcode')"
+                      >Attribution</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nd/4.0/legalcode')"
+                      >CC BY-ND</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc/4.0/legalcode')"
+                      >Attribution-NonCommercial</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc/4.0/legalcode')"
+                      >CC BY-NC</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode')"
+                      >Attribution-NonCommercial-ShareAlike</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode')"
+                      >CC BY-NC-SA</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode')"
+                      >Attribution-NonCommercial-NoDerivs</xsl:when>
+                    <xsl:when
+                      test="matches(../*:rsUrl, 'https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode')"
+                      >CC BY-NC-ND</xsl:when>
+                    <xsl:otherwise>
+                      <xsl:value-of select="../*:rsUrl"/>
+                    </xsl:otherwise>
+                  </xsl:choose>
+                </field>
+              </xsl:if>
+            </xsl:for-each>
+          </xsl:when>-->
+        </xsl:choose>
+
+        <!-- Resource access -->
+        <xsl:choose>
+          <!-- Add 'raw object' and 'object in context' URIs based on PID2 value -->
+          <xsl:when test="normalize-space($PID2) != ''">
+            <field name="uri" access="raw object">
+              <xsl:value-of select="concat('https://curio.lib.virginia.edu/view/', $PID2)"/>
+            </field>
+            <field name="uri" access="object in context">
+              <xsl:value-of select="concat('http://search.lib.virginia.edu/catalog/', $PID2)"/>
+            </field>
+          </xsl:when>
+          <!-- Add URIs from external file -->
+          <!--<xsl:when test="doc-available($extraMetadataFile)">
+            <xsl:variable name="pidMatchExact">
+              <xsl:value-of select="concat('^', normalize-space($PID2), '$')"/>
+            </xsl:variable>
+            <xsl:for-each
+              select="doc($extraMetadataFile)//*:pid[matches(normalize-space(.), $pidMatchExact)]">
+              <xsl:if test="normalize-space(../*:imageUrl) ne ''">
+                <field name="uri" access="raw object">
+                  <xsl:value-of select="../*:imageUrl"/>
+                </field>
+              </xsl:if>
+              <xsl:if test="normalize-space(../*:manifestUrl) ne ''">
+                <field name="uri" displayLabel="uvaIIIFmanifest">
+                  <xsl:value-of select="../*:manifestUrl"/>
+                </field>
+                <field name="uri" access="object in context">
+                  <xsl:value-of
+                    select="concat('https://search.lib.virginia.edu/catalog/', replace(../*:manifestUrl, '^.*/', ''))"
+                  />
+                </field>
+              </xsl:if>
+            </xsl:for-each>
+          </xsl:when>-->
+        </xsl:choose>
+        <xsl:choose>
+          <!-- Add 'preview' URI based on $previewURI parameter -->
+          <xsl:when test="normalize-space($previewURI) != ''">
+            <field name="uri" access="preview">
+              <xsl:value-of select="normalize-space($previewURI)"/>
+            </field>
+          </xsl:when>
+          <!-- Add 'preview' URI from external file -->
+          <!--<xsl:when test="doc-available($extraMetadataFile)">
+            <xsl:variable name="pidMatchExact">
+              <xsl:value-of select="concat('^', normalize-space($PID2), '$')"/>
+            </xsl:variable>
+            <xsl:for-each
+              select="doc($extraMetadataFile)//*:pid[matches(normalize-space(.), $pidMatchExact)]">
+              <xsl:if test="normalize-space(../*:thumbnailUrl) ne ''">
+                <field name="uri" access="preview">
+                  <xsl:value-of select="../*:thumbnailUrl"/>
+                </field>
+              </xsl:if>
+            </xsl:for-each>
+          </xsl:when>-->
+        </xsl:choose>
 
         <!-- Subject -->
         <xsl:for-each select="descendant::*:subject">
@@ -9560,9 +9806,6 @@
                             </xsl:when>
                           </xsl:choose>
                         </xsl:for-each>
-                        <!--<xsl:value-of
-                          select="string-join(*[not(matches(local-name(), 'cartographics|geographicCode|hierarchicalGeographic'))], ', ')"
-                        />-->
                       </xsl:when>
                       <xsl:otherwise>
                         <xsl:value-of select="normalize-space(.)"/>
@@ -10015,7 +10258,7 @@
         </xsl:analyze-string>
       </xsl:when>
       <!-- Ignore lctgm values -->
-      <xsl:when test="matches(@authority, 'lctgm')"/>
+      <!--<xsl:when test="matches(@authority, 'lctgm')"/>-->
       <!-- Anything else -->
       <xsl:otherwise>
         <field name="genre">
@@ -10334,17 +10577,23 @@
           </mediaType>
         </xsl:for-each>
       </xsl:for-each>
+      <xsl:if
+        test="$reformattedDigital = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
+        <mediaType>
+          <xsl:text>computer</xsl:text>
+        </mediaType>
+      </xsl:if>
     </xsl:variable>
     <xsl:variable name="mediaTypeFieldName">
       <xsl:call-template name="whereAmI"/>
       <xsl:text>mediaType</xsl:text>
     </xsl:variable>
-    <xsl:if
-      test="$DL_digitized = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
+    <!--<xsl:if
+      test="$reformattedDigital = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
       <field name="mediaType">
         <xsl:text>computer</xsl:text>
       </field>
-    </xsl:if>
+    </xsl:if>-->
     <xsl:choose>
       <xsl:when test="$mediaTypes/*:mediaType">
         <xsl:for-each
@@ -10463,12 +10712,12 @@
         </xsl:when>
       </xsl:choose>
     </xsl:variable>
-    <xsl:if
-      test="$DL_digitized = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
+    <!--<xsl:if
+      test="$reformattedDigital = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
       <field name="carrierType">
         <xsl:text>online resource</xsl:text>
       </field>
-    </xsl:if>
+    </xsl:if>-->
     <field>
       <xsl:attribute name="name">
         <xsl:value-of select="$carrierTypeFieldName"/>
@@ -10551,7 +10800,7 @@
         <xsl:choose>
           <!-- Digitized -->
           <xsl:when
-            test="$DL_digitized = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
+            test="$reformattedDigital = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
             <xsl:if test="matches(@type, 'physDimensions')">
               <xsl:text>orig_</xsl:text>
             </xsl:if>
@@ -10988,15 +11237,6 @@
       <xsl:text>physLocation</xsl:text>
     </xsl:variable>
     <field name="{$fieldName}">
-      <!-- Create relGroup and locGroup attributes that group data for related resources -->
-      <!--<xsl:if test="matches($fieldName, '^host')">
-        <xsl:attribute name="relGroup">
-          <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-        </xsl:attribute>
-        <xsl:attribute name="locGroup">
-          <xsl:value-of select="generate-id(ancestor::*:location[1])"/>
-        </xsl:attribute>
-      </xsl:if>-->
       <xsl:value-of select="normalize-space(.)"/>
       <xsl:for-each
         select="../*:holdingSimple/*:copyInformation/*:subLocation[not(matches(., 'INTERNET|WITHDRAWN', 'i'))]">
@@ -11018,15 +11258,6 @@
           />
         </xsl:attribute>
       </xsl:if>
-      <!-- Create relGroup and locGroup attributes that group data for related resources -->
-      <!--<xsl:if test="matches($fieldName, '^host')">
-        <xsl:attribute name="relGroup">
-          <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-        </xsl:attribute>
-        <xsl:attribute name="locGroup">
-          <xsl:value-of select="generate-id(ancestor::*:location[1])"/>
-        </xsl:attribute>
-      </xsl:if>-->
       <xsl:value-of select="normalize-space(.)"/>
     </field>
     <xsl:for-each select="../*:itemIdentifier | ../*:holdingSimple//*:itemIdentifier">
@@ -11036,15 +11267,6 @@
       </xsl:variable>
       <field name="{$fieldName}">
         <xsl:copy-of select="@type"/>
-        <!-- Create relGroup and locGroup attributes that group data for related resources -->
-        <!--<xsl:if test="matches($fieldName, '^host')">
-          <xsl:attribute name="relGroup">
-            <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-          </xsl:attribute>
-          <xsl:attribute name="locGroup">
-            <xsl:value-of select="generate-id(ancestor::*:location[1])"/>
-          </xsl:attribute>
-        </xsl:if>-->
         <xsl:value-of select="normalize-space(.)"/>
       </field>
     </xsl:for-each>
@@ -11058,14 +11280,6 @@
     </xsl:variable>
     <field name="{$fieldName}">
       <xsl:copy-of select="@access | @usage | @displayLabel"/>
-      <!-- <xsl:if test="matches($fieldName, '^host')">
-        <xsl:attribute name="relGroup">
-          <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-        </xsl:attribute>
-        <xsl:attribute name="locGroup">
-          <xsl:value-of select="generate-id(ancestor::*:location[1])"/>
-        </xsl:attribute>
-      </xsl:if>-->
       <xsl:choose>
         <xsl:when test="not(@access) and count(../*:url) = 1 and count(../../*:url) = 1">
           <xsl:attribute name="usage">primary</xsl:attribute>
@@ -11086,36 +11300,20 @@
         <xsl:text>isCollection</xsl:text>
       </xsl:variable>
       <field name="{$fieldName}">
-        <!-- Create relGroup and locGroup attributes that group data for related resources -->
-        <!--<xsl:if test="matches($fieldName, '^host')">
-          <xsl:attribute name="relGroup">
-            <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-          </xsl:attribute>
-        </xsl:if>-->
         <xsl:text>yes</xsl:text>
       </field>
     </xsl:if>
     <xsl:if test="@manuscript = 'yes'">
       <field name="isHandwritten">
-        <xsl:if test="ancestor::*:relatedItem[@type = 'host']">
-          <xsl:attribute name="relGroup">
-            <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-          </xsl:attribute>
-        </xsl:if>
         <xsl:text>yes</xsl:text>
       </field>
     </xsl:if>
-    <xsl:if
-      test="$DL_digitized = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
+    <!--<xsl:if
+      test="$reformattedDigital = 'true' and not(ancestor-or-self::*/*:physicalDescription/*:form[matches(., 'electronic|online|remote')])">
       <field name="contentType">
-        <xsl:if test="ancestor::*:relatedItem[@type = 'host']">
-          <xsl:attribute name="relGroup">
-            <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-          </xsl:attribute>
-        </xsl:if>
         <xsl:value-of select="normalize-space(.)"/>
       </field>
-    </xsl:if>
+    </xsl:if>-->
     <xsl:choose>
       <!-- Already a MARC value -->
       <xsl:when
@@ -11125,12 +11323,6 @@
           <xsl:text>contentType</xsl:text>
         </xsl:variable>
         <field name="{$fieldName}">
-          <!-- Create relGroup and locGroup attributes that group data for related resources -->
-          <!--<xsl:if test="matches($fieldName, '^host')">
-            <xsl:attribute name="relGroup">
-              <xsl:value-of select="generate-id(ancestor::*:relatedItem[@type = 'host'][1])"/>
-            </xsl:attribute>
-          </xsl:if>-->
           <xsl:value-of select="normalize-space(.)"/>
         </field>
       </xsl:when>

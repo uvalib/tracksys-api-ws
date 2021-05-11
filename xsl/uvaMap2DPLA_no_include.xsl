@@ -103,7 +103,7 @@
 
   <!-- program version -->
   <xsl:variable name="progVersion">
-    <xsl:text>.02 beta</xsl:text>
+    <xsl:text>1.0</xsl:text>
   </xsl:variable>
 
   <xsl:variable name="runDateTime">
@@ -342,8 +342,23 @@
       </xsl:for-each>
 
       <!-- Creator -->
-      <xsl:apply-templates
-        select="*:field[matches(@name, '^(comp_|host_|orig_|work_)?(creator|contributor)$')]"/>
+      <!-- De-dupe language values -->
+      <!-- Distinctions between the various kinds/roles of 'creator' are lost! -->
+      <xsl:variable name="creators">
+        <xsl:copy-of
+          select="*:field[matches(@name, '^(comp_|host_|orig_|work_)?(creator|contributor)$')]"/>
+      </xsl:variable>
+      <xsl:variable name="creatorsSorted">
+        <xsl:for-each select="$creators/*:field">
+          <xsl:sort/>
+          <xsl:copy-of select="."/>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:for-each select="$creatorsSorted/*:field">
+        <xsl:if test="not(. = preceding-sibling::*:field)">
+          <xsl:apply-templates select="."/>
+        </xsl:if>
+      </xsl:for-each>
 
       <!-- Publisher -->
       <xsl:apply-templates select="*:field[matches(@name, '^(pubProdDist)$')]"/>
@@ -464,7 +479,7 @@
         select="*:field[matches(@name, '(brailleMusicFormat|colorContent|filmPresentationFormat|illustrations|physDetails|playbackChannels|playbackSpecial|playingSpeed|projection|relief|scoreFormat|soundContent|videoFormat)$')]"/>
 
       <!-- Languages -->
-      <!-- De-dupe language values  -->
+      <!-- De-dupe language values -->
       <xsl:variable name="languages">
         <xsl:copy-of select="*:field[matches(@name, '^(language)$')]"/>
       </xsl:variable>
@@ -636,14 +651,14 @@
   <!-- DPLA values at https://drive.google.com/open?id=1fJEWhnYy5Ch7_ef_-V48-FAViA72OieG -->
   <xsl:template match="*:field[matches(@name, '^(genre)$')]">
     <xsl:variable name="thisGenre">
-      <xsl:value-of select="replace(normalize-space(.), '\.+$', '')"/>
+      <xsl:value-of select="lower-case(replace(normalize-space(.), '\.+$', ''))"/>
     </xsl:variable>
     <xsl:if test="$dplaGenreList/*:genre[. = $thisGenre]">
       <edm:hasType>
         <xsl:for-each select="$dplaGenreList/*:genre[. = $thisGenre]">
           <xsl:copy-of select="@valueURI"/>
         </xsl:for-each>
-        <xsl:value-of select="normalize-space(.)"/>
+        <xsl:value-of select="lower-case(normalize-space(.))"/>
       </edm:hasType>
     </xsl:if>
   </xsl:template>
@@ -687,9 +702,7 @@
   <xsl:template
     match="*:field[matches(@name, '^(keyDate|(orig_|host_)?(dateIssued|copyrightDate|dateCreated|dateValid|dateCaptured|dateModified|dateOther))$')]">
     <dcterms:created>
-      <xsl:value-of
-        select="replace(replace(replace(normalize-space(.), '[\[\]]', ''), ' TO ', '/'), '\*', '..')"
-      />
+      <xsl:value-of select="replace(replace(normalize-space(.), ' TO ', '/'), '\*', '..')"/>
     </dcterms:created>
   </xsl:template>
 

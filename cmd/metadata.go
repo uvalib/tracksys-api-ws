@@ -261,6 +261,7 @@ func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, e
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, md.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
 	if clearCache {
+		log.Printf("INFO: clearing saxon cache for fixedMARC")
 		payload.Set("clear-stylesheet-cache", "yes")
 	}
 
@@ -290,15 +291,9 @@ func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error)
 		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, md.PID))
 		payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
 		if clearCache {
+			log.Printf("INFO: clearing saxon cache for MARC->MODS")
 			payload.Set("clear-stylesheet-cache", "yes")
 		}
-		payload.Set("PID", md.PID)
-		payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
-		// notes: don't care about this error. the preview URI going away in the next rev
-		// of the stylesheet and this code will no longer be needed
-		uri, _ := svc.getExemplarThumbURL(md.ID)
-		payload.Set("previewURI", uri)
-		payload.Set("useRightsURI", md.RightsURI)
 		payload.Set("barcode", md.Barcode.String)
 		mods, err := svc.saxonTransform(&payload)
 		if err == nil {
@@ -327,8 +322,18 @@ func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, erro
 	payload := url.Values{}
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=mods", svc.APIURL, md.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/modstouvamap", svc.APIURL))
+
 	payload.Set("PID", md.PID)
+	payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
+	payload.Set("useRightsURI", md.RightsURI)
+
+	// notes: don't care about this error. the preview URI going away in the next rev
+	// of the stylesheet and this code will no longer be needed
+	uri, _ := svc.getExemplarThumbURL(md.ID)
+	payload.Set("previewURI", uri)
+
 	if clearCache {
+		log.Printf("INFO: clearing saxon cache for MODS->uvaMAP")
 		payload.Set("clear-stylesheet-cache", "yes")
 	}
 
@@ -352,6 +357,7 @@ func (svc *ServiceContext) getDPLA(md metadata, clearCache bool) ([]byte, error)
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=uvamap", svc.APIURL, md.PID))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/uvamaptodpla", svc.APIURL))
 	if clearCache {
+		log.Printf("INFO: clearing saxon cache for uvaMAP->DPLA")
 		payload.Set("clear-stylesheet-cache", "yes")
 	}
 
