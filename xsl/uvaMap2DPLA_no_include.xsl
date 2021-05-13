@@ -464,18 +464,19 @@
       <xsl:choose>
         <!-- Use @valueURI on field[name='useRestrict'] -->
         <xsl:when
-          test="*:field[matches(@name, '^(useRestrict)$')]/@valueURI[not(normalize-space(.) = '')]">
+          test="*:field[matches(@name, '^(useRestrict)$') and normalize-space(@valueURI) != '']">
           <dcterms:rights>
             <xsl:value-of
-              select="normalize-space(*:field[matches(@name, '^(useRestrict)$')]/@valueURI)"/>
+              select="normalize-space(*:field[matches(@name, '^(useRestrict)$') and normalize-space(@valueURI) != ''][1]/@valueURI)"
+            />
           </dcterms:rights>
         </xsl:when>
-        <!-- Use value of field[name='useRestrict'] -->
+        <!-- Use text value of field[name='useRestrict'] -->
         <xsl:when
           test="*:field[matches(@name, '^(useRestrict)$')][matches(normalize-space(.), '^http')]">
           <dcterms:rights>
             <xsl:value-of
-              select="normalize-space(*:field[matches(@name, '^(useRestrict)$')][matches(normalize-space(.), '^http')])"
+              select="normalize-space(*:field[matches(@name, '^(useRestrict)$')][matches(normalize-space(.), '^http')][1])"
             />
           </dcterms:rights>
         </xsl:when>
@@ -514,45 +515,14 @@
 
       <!-- URLs -->
       <!-- Choose most appropriate URLs  -->
-      <xsl:apply-templates
-        select="*:field[matches(@name, '^(uri)')][matches(@access, '(preview)')][1]"/>
+      <xsl:apply-templates select="*:field[@name = 'uri'][@access = 'preview'][1]"/>
       <xsl:choose>
-        <!-- Prefer absolute URL -->
-        <xsl:when
-          test="*:field[matches(@name, '^(uri)')][matches(@access, 'object in context')][matches(., '^([a-z]+://)')]">
-          <xsl:apply-templates
-            select="*:field[matches(@name, '^(uri)')][matches(@access, 'object in context')][matches(., '^([a-z]+://)')][1]"
-          />
+        <xsl:when test="*:field[@name = 'uri'][@access = 'object in context']">
+          <xsl:apply-templates select="*:field[@name = 'uri'][@access = 'object in context'][1]"/>
         </xsl:when>
-        <xsl:when
-          test="*:field[matches(@name, '^(uri)')][matches(@access, 'raw object')][matches(., '^([a-z]+://)')]">
-          <xsl:apply-templates
-            select="*:field[matches(@name, '^(uri)')][matches(@access, 'raw object')][matches(., '^([a-z]+://)')][1]"
-          />
+        <xsl:when test="*:field[@name = 'uri'][@access = 'raw object']">
+          <xsl:apply-templates select="*:field[@name = 'uri'][@access = 'raw object'][1]"/>
         </xsl:when>
-        <xsl:when
-          test="*:field[matches(@name, '^(uri)')][matches(@usage, 'primary')][matches(., '^([a-z]+://)')]">
-          <xsl:apply-templates
-            select="*:field[matches(@name, '^(uri)')][matches(@usage, 'primary')][matches(., '^([a-z]+://)')][1]"
-          />
-        </xsl:when>
-        <!-- Relative URL is acceptable, but has to be hand-edited later  -->
-        <xsl:when test="*:field[matches(@name, '^(uri)')][matches(@access, 'object in context')]">
-          <xsl:apply-templates
-            select="*:field[matches(@name, '^(uri)')][matches(@access, 'object in context')][1]"/>
-        </xsl:when>
-        <xsl:when test="*:field[matches(@name, '^(uri)')][matches(@access, 'raw object')]">
-          <xsl:apply-templates
-            select="*:field[matches(@name, '^(uri)')][matches(@access, 'raw object')][1]"/>
-        </xsl:when>
-        <xsl:when test="*:field[matches(@name, '^(uri)')][matches(@usage, 'primary')]">
-          <xsl:apply-templates
-            select="*:field[matches(@name, '^(uri)')][matches(@usage, 'primary')][1]"/>
-        </xsl:when>
-        <!-- Any URL is better than none -->
-        <xsl:otherwise>
-          <xsl:apply-templates select="*:field[matches(@name, '^(uri)')][1]"/>
-        </xsl:otherwise>
       </xsl:choose>
 
     </mdRecord>
