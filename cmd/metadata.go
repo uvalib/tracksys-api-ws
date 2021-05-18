@@ -237,9 +237,20 @@ func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
 	}
 
 	log.Printf("INFO: Get MARC from Sirsi")
-	re := regexp.MustCompile(`^u`)
-	cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
-	url := fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
+	url := ""
+	if md.CatalogKey.Valid {
+		log.Printf("INFO: lookup sirsi metadata by catalog key [%s]", md.CallNumber.String)
+		re := regexp.MustCompile(`^u`)
+		cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
+		url = fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
+	} else {
+		if md.Barcode.Valid {
+			log.Printf("INFO: lookup sirsi metadata by barcode [%s]", md.Barcode.String)
+			url = fmt.Sprintf("%s/getMarc?barcode=%s&type=xml", svc.SirsiURL, md.Barcode.String)
+		} else {
+			return nil, fmt.Errorf("sirsi metadata %s has no barcode and no catalog key", md.PID)
+		}
+	}
 	respStr, err := svc.getAPIResponse(url)
 	if err != nil {
 		return nil, err
