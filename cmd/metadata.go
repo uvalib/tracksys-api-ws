@@ -238,13 +238,13 @@ func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
 
 	log.Printf("INFO: Get MARC from Sirsi")
 	url := ""
-	if md.CatalogKey.Valid {
+	if md.CatalogKey.Valid && md.CatalogKey.String != "" {
 		log.Printf("INFO: lookup sirsi metadata by catalog key [%s]", md.CallNumber.String)
 		re := regexp.MustCompile(`^u`)
 		cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
 		url = fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
 	} else {
-		if md.Barcode.Valid {
+		if md.Barcode.Valid && md.Barcode.String != "" {
 			log.Printf("INFO: lookup sirsi metadata by barcode [%s]", md.Barcode.String)
 			url = fmt.Sprintf("%s/getMarc?barcode=%s&type=xml", svc.SirsiURL, md.Barcode.String)
 		} else {
