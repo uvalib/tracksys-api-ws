@@ -13,7 +13,7 @@ require (
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/prometheus/client_golang v1.10.0
-	github.com/prometheus/common v0.24.0 // indirect
+	github.com/prometheus/common v0.25.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	github.com/zsais/go-gin-prometheus v0.1.0

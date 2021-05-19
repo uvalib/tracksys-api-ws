@@ -668,7 +668,7 @@
     <xsl:variable name="thisValue">
       <xsl:value-of select="normalize-space(.)"/>
     </xsl:variable>
-    <xsl:if test="not(matches(../*:field[matches(@name, 'physExtent$')], $thisValue))">
+    <xsl:if test="not(exists(../*:field[matches(@name, 'physExtent$') and matches(., $thisValue)]))">
       <dcterms:extent>
         <xsl:value-of select="normalize-space(.)"/>
         <xsl:call-template name="createTrailingLabel"/>

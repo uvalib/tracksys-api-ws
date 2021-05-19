@@ -9379,13 +9379,13 @@
         </xsl:if>
 
         <!-- Title = title proper -->
-        <!-- Capitalize first word -->
+        <!-- Use first titleIndo, capitalize first word in title -->
         <xsl:if
           test="*:titleInfo[matches(@usage, 'primary') or not(matches(@type, 'abbreviated|alternative|translated|uniform'))]/*:title[not(normalize-space(.) eq '')]">
           <field name="title">
             <xsl:variable name="title">
               <xsl:value-of
-                select="replace(normalize-space(*:titleInfo[matches(@usage, 'primary') or not(matches(@type, 'abbreviated|alternative|translated|uniform'))][*:title[not(normalize-space(.) eq '')]]/*:title[not(normalize-space(.) eq '')]), '[\.:,;/]+$', '')"
+                select="replace(normalize-space(*:titleInfo[matches(@usage, 'primary') or not(matches(@type, 'abbreviated|alternative|translated|uniform'))][*:title[not(normalize-space(.) eq '')]][1]/*:title[not(normalize-space(.) eq '')]), '[\.:,;/]+$', '')"
               />
             </xsl:variable>
             <xsl:value-of select="upper-case(substring($title, 1, 1))"/>
@@ -9394,7 +9394,7 @@
         </xsl:if>
 
         <!-- Subtitle -->
-        <!-- Capitalize first word -->
+        <!-- Use first titleInfo, capitalize first word -->
         <xsl:for-each
           select="*:titleInfo[matches(@usage, 'primary') or not(matches(@type, 'abbreviated|alternative|translated|uniform'))][1]/*:subTitle">
           <field name="subtitle">
