@@ -6,21 +6,25 @@ import (
 )
 
 func (svc *ServiceContext) startCache() {
-	svc.Cache = make(map[string]CacheRecord)
+	svc.Cache.Data = make(map[string]CacheRecord)
 	ticker := time.NewTicker(30 * time.Second)
 	for range ticker.C {
 		ts := time.Now()
-		for key, val := range svc.Cache {
+		svc.Cache.Mux.Lock()
+		for key, val := range svc.Cache.Data {
 			if ts.After(val.ExpiresAt) {
-				delete(svc.Cache, key)
+				delete(svc.Cache.Data, key)
 			}
 		}
+		svc.Cache.Mux.Unlock()
 	}
 }
 
 func (svc *ServiceContext) getCache(dataType string, pid string) []byte {
 	key := fmt.Sprintf("%s-%s", pid, dataType)
-	cacheRec, ok := svc.Cache[key]
+	svc.Cache.Mux.Lock()
+	defer svc.Cache.Mux.Unlock()
+	cacheRec, ok := svc.Cache.Data[key]
 	if ok {
 		return cacheRec.Data
 	}
@@ -29,9 +33,7 @@ func (svc *ServiceContext) getCache(dataType string, pid string) []byte {
 
 func (svc *ServiceContext) updateCache(dataType string, pid string, data []byte) {
 	key := fmt.Sprintf("%s-%s", pid, dataType)
-	svc.Cache[key] = CacheRecord{Data: data, ExpiresAt: time.Now().Add(5 * time.Minute)}
-}
-
-func (svc *ServiceContext) clearCache(key string, data []byte) {
-	svc.Cache = make(map[string]CacheRecord)
+	svc.Cache.Mux.Lock()
+	svc.Cache.Data[key] = CacheRecord{Data: data, ExpiresAt: time.Now().Add(5 * time.Minute)}
+	svc.Cache.Mux.Unlock()
 }

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,12 @@ type CacheRecord struct {
 	ExpiresAt time.Time
 }
 
+// Cache is a simple map of string -> []byte for metad records
+type Cache struct {
+	Data map[string]CacheRecord
+	Mux  sync.Mutex
+}
+
 // ServiceContext contains common data used by all handlers
 type ServiceContext struct {
 	Version       string
@@ -38,7 +45,7 @@ type ServiceContext struct {
 	DB            *dbx.DB
 	HTTPClient    *http.Client
 	SaxonClient   *http.Client
-	Cache         map[string]CacheRecord
+	Cache         Cache
 }
 
 type cloneData struct {
