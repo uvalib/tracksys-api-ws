@@ -121,21 +121,20 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	out.Items = make([]enrichData, 0)
 
 	for _, md := range mdRecs {
+		log.Printf("INFO: get enrich data for %s belonging to catkey %s", md.PID, key)
 		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: md.RightsURI}
 		iiifURL, err := svc.getIIIFManifestURL(md.PID)
 		if err != nil {
-			log.Printf("ERROR: Unable to get IIIF manifest for %s: %s", md.PID, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
-			return
+			log.Printf("ERROR: Unable to get IIIF manifest for %s; skipping: %s", md.PID, err.Error())
+			continue
 		}
 		item.IIIFManURL = iiifURL
 
 		// published items are required to have an exemplar
 		item.ExemplarURL, err = svc.getExemplarThumbURL(md.ID)
 		if err != nil {
-			log.Printf("ERROR: %s", err)
-			c.String(http.StatusInternalServerError, err.Error())
-			return
+			log.Printf("ERROR: unable to get thumb for %s; skipping: %s", md.PID, err)
+			continue
 		}
 
 		item.Uses = getUses(&md)

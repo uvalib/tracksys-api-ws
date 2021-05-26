@@ -148,6 +148,7 @@ func (svc *ServiceContext) describeService(c *gin.Context) {
 }
 
 func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
+	log.Printf("INFO: get thumb url for metadata id %d", mdID)
 	exemplarURL := ""
 	qSQL := `select id,pid,original_mf_id from master_files where metadata_id={:id} and exemplar=1 limit 1`
 	q := svc.DB.NewQuery(qSQL)
@@ -160,11 +161,22 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
 	}
 	err := q.One(&mf)
 	if err != nil {
-		return "", err
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+		log.Printf("INFO: no exemplar set for metadata id %d; choosing first masterfile", mdID)
+		qSQL = `select id,pid,original_mf_id from master_files where metadata_id={:id} order by filename asc limit 1`
+		q = svc.DB.NewQuery(qSQL)
+		q.Bind(dbx.Params{"id": mdID})
+		err := q.One(&mf)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// If ClonedFromID is set, this MF is cloned. Must use original MF for exemplar
 	if mf.ClonedFromID.Valid {
+		log.Printf("INFO: thumb masterfile %s is a clone; look up original", mf.PID)
 		q := svc.DB.NewQuery(qSQL)
 		q.Bind(dbx.Params{"id": mf.ClonedFromID.Int64})
 		err := q.One(&mf)
