@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/gin-gonic/gin"
+	dbx "github.com/go-ozzo/ozzo-dbx"
 )
 
 type circulationData struct {
@@ -44,10 +45,11 @@ func (svc *ServiceContext) getCirculationData(c *gin.Context) {
 			inner join customers c on c.id = customer_id
 			inner join units u on u.order_id = o.id
 			inner join metadata m on m.id = u.metadata_id
-		where date_request_submitted >= '2021-03-01' and date_request_submitted <= '2021-03-31'
+		where date_request_submitted >= {:fromdate} and date_request_submitted <= {:todate}
 			and c.email is not null and m.type="SirsiMetadata" and m.call_number <> ''
 			and (order_status='completed' || order_status='approved' || order_status='await_fee')`
 	q := svc.DB.NewQuery(qSQL)
+	q.Bind(dbx.Params{"fromdate": fromDate, "todate": toDate})
 	err := q.All(&out)
 	if err != nil {
 		if err != sql.ErrNoRows {
