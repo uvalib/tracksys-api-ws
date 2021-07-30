@@ -11,12 +11,12 @@ import (
 )
 
 type circulationData struct {
-	DateRequested string `db:"date_request_submitted" json:"request_date"`
-	Status        string `db:"order_status" json:"status"`
-	Email         string `db:"email" json:"email"`
-	LastName      string `db:"last_name" json:"last_name"`
-	FirstName     string `db:"first_name" json:"first_name"`
-	CallNumber    string `db:"call_number" json:"call_number"`
+	DateRequested string  `db:"date_request_submitted" json:"request_date"`
+	Status        string  `db:"order_status" json:"status"`
+	Email         string  `db:"email" json:"email"`
+	LastName      string  `db:"last_name" json:"last_name"`
+	FirstName     *string `db:"first_name" json:"first_name,omitempty"`
+	CallNumber    string  `db:"call_number" json:"call_number"`
 }
 
 func (svc *ServiceContext) getCirculationData(c *gin.Context) {
