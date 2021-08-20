@@ -13,7 +13,7 @@ import (
 )
 
 // Version of the service
-const version = "2.2.3"
+const version = "2.3.0"
 
 func main() {
 	log.Printf("===> TrackSys API service starting up <===")
@@ -67,6 +67,8 @@ func main() {
 
 		api.GET("/metadata/:pid", svc.getMetadata)
 		api.GET("/search", svc.searchMetadata)
+
+		api.POST("/transform", svc.transformXMLMetadata)
 	}
 
 	portStr := fmt.Sprintf(":%d", cfg.Port)

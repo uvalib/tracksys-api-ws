@@ -8,6 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -46,6 +48,7 @@ type ServiceContext struct {
 	HTTPClient    *http.Client
 	SaxonClient   *http.Client
 	Cache         Cache
+	WorkDir       string
 }
 
 type cloneData struct {
@@ -63,6 +66,7 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 		PDFServiceURL: cfg.PDFServiceURL,
 		IIIFManURL:    cfg.IIIFManURL,
 		IIIFURL:       cfg.IIIFURL,
+		WorkDir:       cfg.WorkDir,
 	}
 	go ctx.startCache()
 
@@ -286,6 +290,13 @@ func (svc *ServiceContext) getStyleSheet(c *gin.Context) {
 	}
 	if ssID == "fixmarc" {
 		c.File("./xsl/fixMarcErrors_no_include.xsl")
+		return
+	}
+
+	xslFilePath := path.Join(svc.WorkDir, ssID)
+	_, existErr := os.Stat(xslFilePath)
+	if existErr == nil {
+		c.File(xslFilePath)
 		return
 	}
 

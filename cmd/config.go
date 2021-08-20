@@ -24,6 +24,7 @@ type ServiceConfig struct {
 	IIIFManURL    string
 	IIIFURL       string
 	APIURL        string
+	WorkDir       string
 }
 
 // LoadConfiguration will load the service configuration from the commandline
@@ -38,6 +39,7 @@ func LoadConfiguration() *ServiceConfig {
 	flag.StringVar(&cfg.IIIFManURL, "iiifman", "https://iiifman.lib.virginia.edu", "IIIF Manifest service URL")
 	flag.StringVar(&cfg.IIIFURL, "iiif", "https://iiif.lib.virginia.edu/iiif", "IIIF service URL")
 	flag.StringVar(&cfg.APIURL, "api", "https://iiif.lib.virginia.edu/iiif", "This API service URL")
+	flag.StringVar(&cfg.WorkDir, "work", "/tmp", "Working dir")
 
 	// DB connection params
 	flag.StringVar(&cfg.DB.Host, "dbhost", "", "Database host")
@@ -72,6 +74,7 @@ func LoadConfiguration() *ServiceConfig {
 	log.Printf("[CONFIG] dbport        = [%d]", cfg.DB.Port)
 	log.Printf("[CONFIG] dbname        = [%s]", cfg.DB.Name)
 	log.Printf("[CONFIG] dbuser        = [%s]", cfg.DB.User)
+	log.Printf("[CONFIG] workDir       = [%s]", cfg.WorkDir)
 
 	return &cfg
 }

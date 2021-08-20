@@ -2,11 +2,13 @@
    "description": "This service exposes various forms of metadata for UVALibrary items that have been digitized. All are GET requests.",
    "endpoints": [
       {
+         "method": "GET",
          "uri": "/version",
          "description": "Get the version of this serice",
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/circulation",
          "description": "Get a circulation report for the date range specified",
          "respone": "JSON",
@@ -20,51 +22,61 @@
          ]
       },
       {
+         "method": "GET",
          "uri": "/api/manifest/:pid",
          "description": "Get a list of masterfiles for the given PID",
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/published/dpla",
          "description": "Get a list identifiers that have been published to the DPLA",
          "respone": "CSV"
       },
       {
+         "method": "GET",
          "uri": "/api/published/virgo?type=[sirsi|other]",
          "description": "Get a list identifiers that have been published to viro. Type is required.",
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/enriched/sirsi/:key",
          "description": "Get enriched metadata for a Sirsi item published to Virgo by catalog key.",
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/enriched/other/:pid",
          "description": "Get enriched metadata for an XML item published to Virgo by PID.",
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/enriched/other/:pid",
          "description": "Get enriched metadata for an XML item published to Virgo by PID",
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/pid/:pid",
          "description": "Get a brief summary for any PID",
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/pid/:pid/access",
          "description": "Get the access restrictions for any PID (public, uva or private).",
          "respone": "Text"
       },
       {
+         "method": "GET",
          "uri": "/api/pid/:pid/type",
          "description": "Get the type of data represented by any PID.",
          "respone": "Text"
       },
       {
+         "method": "GET",
          "uri": "/api/pid/:pid/text",
          "description": "Get the text associated with a master file or metadata record by PID.",
          "respone": "Text",
@@ -83,9 +95,24 @@
          "respone": "JSON"
       },
       {
+         "method": "GET",
          "uri": "/api/metadata/:pid?type=(brief|mods|marc)",
          "description": "Get metadata for a PID. Type is required. Not all PIDs support all types of metadata.",
          "respone": "Depends on type: brief=JSON, other=XML"
+      },
+      {
+         "method": "POST",
+         "uri": "/api/transform",
+         "description": "Transform a XML metadata using the provided XSL transform",
+         "respone": "JSON",
+         "formFields":[
+            {"type": "test, single or global. Controls scope of transform"},
+            {"user": "computingID of admin user that will be associated with the transform"},
+            {"pid": "The PID of the XML metadata to transform. Only needed for test and single"},
+            {"xsl": "Path to the XSL file for the transform"},
+            {"comment": "Brief note about the change"}
+         ],
+         "sample": "curl -X POST http://https://tracksys-api-ws.internal.lib.virginia.edu/api/transform -H \"Content-Type: multipart/form-data\" -F user=computeID -F mode=single -F pid=uva-lib:729248 -F xsl=@/path/to/test3.xsl -F \"comment=sample note\""
       }
    ]
 }
