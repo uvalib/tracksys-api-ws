@@ -69,6 +69,7 @@ func main() {
 		api.GET("/search", svc.searchMetadata)
 
 		api.POST("/transform", svc.transformXMLMetadata)
+		api.GET("/transform/:id/status", svc.transformStatus)
 	}
 
 	portStr := fmt.Sprintf(":%d", cfg.Port)

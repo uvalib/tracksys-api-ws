@@ -25,6 +25,7 @@ type ServiceConfig struct {
 	IIIFURL       string
 	APIURL        string
 	WorkDir       string
+	WriteKey      string
 }
 
 // LoadConfiguration will load the service configuration from the commandline
@@ -40,6 +41,7 @@ func LoadConfiguration() *ServiceConfig {
 	flag.StringVar(&cfg.IIIFURL, "iiif", "https://iiif.lib.virginia.edu/iiif", "IIIF service URL")
 	flag.StringVar(&cfg.APIURL, "api", "https://iiif.lib.virginia.edu/iiif", "This API service URL")
 	flag.StringVar(&cfg.WorkDir, "work", "/tmp", "Working dir")
+	flag.StringVar(&cfg.WriteKey, "key", "", "Access key for POST requests")
 
 	// DB connection params
 	flag.StringVar(&cfg.DB.Host, "dbhost", "", "Database host")
@@ -61,6 +63,9 @@ func LoadConfiguration() *ServiceConfig {
 	}
 	if cfg.DB.Pass == "" {
 		log.Fatal("Parameter dbpass is required")
+	}
+	if cfg.WriteKey == "" {
+		log.Fatal("Parameter key is required")
 	}
 
 	log.Printf("[CONFIG] port          = [%d]", cfg.Port)

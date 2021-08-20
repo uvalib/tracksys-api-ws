@@ -104,7 +104,7 @@
          "method": "POST",
          "uri": "/api/transform",
          "description": "Transform a XML metadata using the provided XSL transform",
-         "respone": "JSON",
+         "respone": "Single/Test responds with transformed XML. Global responds with text UUID of the transform which can be used to check status",
          "formFields":[
             {"type": "test, single or global. Controls scope of transform"},
             {"user": "computingID of admin user that will be associated with the transform"},
@@ -113,6 +113,12 @@
             {"comment": "Brief note about the change"}
          ],
          "sample": "curl -X POST http://https://tracksys-api-ws.internal.lib.virginia.edu/api/transform -H \"Content-Type: multipart/form-data\" -F user=computeID -F mode=single -F pid=uva-lib:729248 -F xsl=@/path/to/test3.xsl -F \"comment=sample note\""
+      },
+      {
+         "method": "GET",
+         "uri": "/api/transform/:uuid/status",
+         "description": "Check the status of a global transform. UUID is returned from POST /api/tramsform",
+         "respone": "Text log of global transform progress"
       }
    ]
 }

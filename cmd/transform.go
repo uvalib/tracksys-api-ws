@@ -25,6 +25,11 @@ type xmlMetadata struct {
 	Metadata string `db:"desc_metadata"`
 }
 
+// TableName sets the name of the table in the DB that this struct binds to
+func (u xmlMetadata) TableName() string {
+	return "metadata_versions"
+}
+
 type metadataVersion struct {
 	MetadataID int64  `db:"metadata_id"`
 	UserID     int64  `db:"staff_member_id"`
@@ -38,11 +43,30 @@ func (u metadataVersion) TableName() string {
 	return "metadata_versions"
 }
 
+func (svc *ServiceContext) transformStatus(c *gin.Context) {
+	uuid := c.Param("id")
+	statusFileName := fmt.Sprintf("%s.log", uuid)
+	statusPath := path.Join(svc.WorkDir, statusFileName)
+	_, existErr := os.Stat(statusPath)
+	if existErr != nil {
+		log.Printf("INFO: %s not found", statusPath)
+		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", uuid))
+		return
+	}
+	c.File(statusPath)
+}
+
 func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 	computeID := c.PostForm("user")
 	tgtPID := c.PostForm("pid")
 	mode := c.PostForm("mode")
 	comment := c.PostForm("comment")
+	key := c.PostForm("key")
+
+	if key != svc.Key {
+		c.String(http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
 	if mode != "global" && mode != "test" && mode != "single" {
 		c.String(http.StatusBadRequest, "mode test, unit or global is required")
@@ -70,7 +94,7 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 
 	var xmlMD *xmlMetadata
 	if tgtPID != "" {
-		xmlMD, err = svc.getMetadataPID(tgtPID)
+		xmlMD, err = svc.getXMLMetadata(tgtPID)
 		if err != nil {
 			c.String(http.StatusBadRequest, fmt.Sprintf("pid %s is not valid", tgtPID))
 			return
@@ -146,10 +170,10 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 		return
 	}
 
-	// Global transform
-	// TODO
-
-	c.String(http.StatusNotImplemented, "global transform not implemented")
+	// Global transform is done in a goroutine with the root filename as the key
+	statusKey, err := svc.globalTransform(userID, tgtPID, tmpFileName, comment)
+	log.Printf("INFO: global transform started; status key %s", statusKey)
+	c.String(http.StatusOK, statusKey)
 }
 
 func removeTempFile(tmpFilePath string) {
@@ -160,7 +184,7 @@ func removeTempFile(tmpFilePath string) {
 	}
 }
 
-func (svc *ServiceContext) getMetadataPID(pid string) (*xmlMetadata, error) {
+func (svc *ServiceContext) getXMLMetadata(pid string) (*xmlMetadata, error) {
 	q := svc.DB.NewQuery("select id,pid,desc_metadata from metadata where pid={:pid} and type={:t}")
 	q.Bind(dbx.Params{"pid": pid})
 	q.Bind(dbx.Params{"t": "XmlMetadata"})
@@ -223,5 +247,67 @@ func (svc *ServiceContext) createMetadataVersion(newMD []byte, xmlMD *xmlMetadat
 	return nil
 }
 
-func (svc *ServiceContext) globalTransform(userID int64, unitPID string, xslName string) {
+func (svc *ServiceContext) globalTransform(userID int64, unitPID string, xslName string, comment string) (string, error) {
+	xformUUID := strings.Split(xslName, ".xsl")[0]
+	statusFileName := fmt.Sprintf("%s.log", xformUUID)
+	statusFilePath := path.Join(svc.WorkDir, statusFileName)
+	logFile, err := os.Create(statusFilePath)
+	if err != nil {
+		return "", err
+	}
+	log.Printf("INFO: kicking off global transform in goroutine")
+	go svc.globalWorker(userID, unitPID, xslName, comment, logFile)
+	return xformUUID, nil
+}
+
+func (svc *ServiceContext) globalWorker(userID int64, unitPID string, xslName string, comment string, logFile *os.File) {
+	defer logFile.Close()
+	pageSize := 1000
+	startOffset := 0
+	xslFilePath := path.Join(svc.WorkDir, xslName)
+	done := false
+
+	for !done {
+		q := svc.DB.NewQuery("select id,pid,desc_metadata from metadata where type={:t} order by id asc limit {:o},{:l}")
+		q.Bind(dbx.Params{"t": "XmlMetadata"})
+		q.Bind(dbx.Params{"l": pageSize})
+		q.Bind(dbx.Params{"o": startOffset})
+		var mdRecs []xmlMetadata
+		err := q.All(&mdRecs)
+		if err != nil {
+			log.Printf("ERROR: unable to get XmlMetadata records: %s", err.Error())
+		}
+
+		logFile.WriteString(fmt.Sprintf("\nProcessing batch of metadata records %d - %d\n", startOffset, startOffset+pageSize))
+		if len(mdRecs) < pageSize {
+			done = true
+		}
+
+		for _, md := range mdRecs {
+			newXML, err := svc.applyTransform(md.PID, xslName)
+			if err != nil {
+				log.Printf("ERROR: transform %s with %s failed: %s", md.PID, xslName, err.Error())
+				logFile.WriteString(fmt.Sprintf("\nERROR: %s: %s\n", md.PID, err.Error()))
+				logFile.WriteString("Transform FAILED\n")
+				removeTempFile(xslFilePath)
+				return
+			}
+
+			err = svc.createMetadataVersion(newXML, &md, xslName, userID, comment)
+			if err != nil {
+				log.Printf("ERROR: unable to save metadata %s version: %s", md.PID, err.Error())
+				logFile.WriteString(fmt.Sprintf("\nERROR: unable to save metadata %s version: %s\n", md.PID, err.Error()))
+				logFile.WriteString("Transform FAILED\n")
+				removeTempFile(xslFilePath)
+				return
+			}
+			logFile.WriteString(".")
+		}
+
+		startOffset += pageSize
+	}
+
+	removeTempFile(xslFilePath)
+	logFile.WriteString("\nDONE\n")
+	log.Printf("INFO: global transform with %s is done", xslName)
 }

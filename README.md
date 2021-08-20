@@ -22,6 +22,6 @@ Requires Go 1.16.0+
 * GET /search - find a matching PID; requires param ?q=what_to_look_for
 * POST /transform - transform XmlMetadata using the supplied XSL from multipart form data. Supported modes: test, single and global. Example command:
 ```
-curl -X POST http://api-host/api/transform -H "Content-Type: multipart/form-data" -F user=computeID -F mode=test -F pid=uva-lib:729248 -F xsl=@/path/to/test.xsl -F "comment=transform notes"
+curl -X POST http://api-host/api/transform -H "Content-Type: multipart/form-data" -F user=computeID -F key=accessKey -F mode=test -F pid=uva-lib:729248 -F xsl=@/path/to/test.xsl -F "comment=transform notes"
 ```
 

@@ -49,6 +49,7 @@ type ServiceContext struct {
 	SaxonClient   *http.Client
 	Cache         Cache
 	WorkDir       string
+	Key           string
 }
 
 type cloneData struct {
@@ -67,6 +68,7 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 		IIIFManURL:    cfg.IIIFManURL,
 		IIIFURL:       cfg.IIIFURL,
 		WorkDir:       cfg.WorkDir,
+		Key:           cfg.WriteKey,
 	}
 	go ctx.startCache()
 
