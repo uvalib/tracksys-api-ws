@@ -18,10 +18,16 @@ Requires Go 1.16.0+
 * GET /pid/:pid/access - get access rights for a PID (uva, public or private)
 * GET /pid/:pid/type - get the type of data represented by this PID
 * GET /pid/:pid/text - get OCR text from the PID
+* POST /pid/:pid/ocr - add OCR text to a masterfile PID. Required form fields are text and key. See below for a similar command example.
 * GET /metadata/:pid - get a full metadata record for a PID
 * GET /search - find a matching PID; requires param ?q=what_to_look_for
+* GET /transform/:uuid - get the status log of an in-process transformation
 * POST /transform - transform XmlMetadata using the supplied XSL from multipart form data. Supported modes: test, single and global. Example command:
 ```
-curl -X POST http://api-host/api/transform -H "Content-Type: multipart/form-data" -F user=computeID -F key=accessKey -F mode=test -F pid=uva-lib:729248 -F xsl=@/path/to/test.xsl -F "comment=transform notes"
+curl -X POST http://api-host/api/transform \
+     -H "Content-Type: multipart/form-data" \
+     -F user=computeID -F key=accessKey \
+     -F mode=test -F pid=uva-lib:729248 \
+     -F xsl=@/path/to/test.xsl -F "comment=transform notes"
 ```
 
