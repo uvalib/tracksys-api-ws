@@ -166,7 +166,13 @@ func (svc *ServiceContext) updatePIDText(c *gin.Context) {
 	key := c.PostForm("key")
 	log.Printf("INFO: received request to update masterfile %s with OCR data", pid)
 
+	if key == "" {
+		log.Printf("INFO: ocr update request is missing key")
+		c.String(http.StatusUnauthorized, "unauthorized")
+		return
+	}
 	if key != svc.Key {
+		log.Printf("INFO: ocr update request has mismatched key")
 		c.String(http.StatusUnauthorized, "unauthorized")
 		return
 	}
