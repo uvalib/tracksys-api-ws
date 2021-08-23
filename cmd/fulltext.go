@@ -164,6 +164,7 @@ func (svc *ServiceContext) updatePIDText(c *gin.Context) {
 	pid := c.Param("pid")
 	text := c.PostForm("text")
 	key := c.PostForm("key")
+	log.Printf("INFO: received request to update masterfile %s with OCR data", pid)
 
 	if key != svc.Key {
 		c.String(http.StatusUnauthorized, "unauthorized")
@@ -176,6 +177,7 @@ func (svc *ServiceContext) updatePIDText(c *gin.Context) {
 		return
 	}
 
+	log.Printf("INFO: get current ocr info for %s", pid)
 	q := svc.DB.NewQuery("select id,text_source from master_files where pid={:pid}")
 	q.Bind(dbx.Params{"pid": pid})
 	var dbResp struct {
@@ -195,6 +197,7 @@ func (svc *ServiceContext) updatePIDText(c *gin.Context) {
 	}
 
 	// from TrackSys: {ocr: 0, corrected_ocr: 1, transcription: 2}
+	log.Printf("INFO: master file %s text_source is currently [%d]", pid, dbResp.TextSource.Int64)
 	if dbResp.TextSource.Valid == false || dbResp.TextSource.Int64 == 0 {
 		log.Printf("INFO: updating ocr text for masterfile %s", pid)
 		q := svc.DB.NewQuery("update master_files set transcription_text={:txt}, text_source={:s} where id={:id}")
@@ -211,5 +214,6 @@ func (svc *ServiceContext) updatePIDText(c *gin.Context) {
 		return
 	}
 
+	log.Printf("INFO: master file %s already has corrected or transcribed text; ocr update canceled", pid)
 	c.String(http.StatusConflict, "Master File already has Corrected OCR or Transcription text")
 }
