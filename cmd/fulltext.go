@@ -172,7 +172,7 @@ func (svc *ServiceContext) updatePIDText(c *gin.Context) {
 		return
 	}
 	if key != svc.Key {
-		log.Printf("INFO: ocr update request has mismatched key")
+		log.Printf("INFO: ocr update request with invalid key [%s]", key)
 		c.String(http.StatusUnauthorized, "unauthorized")
 		return
 	}
