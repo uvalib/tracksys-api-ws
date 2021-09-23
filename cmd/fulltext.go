@@ -95,7 +95,7 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 	if err == nil {
 		unitID := c.Query("unit")
 		if unitID == "" {
-			q := svc.DB.NewQuery(`select id from units where metadata_id={:id} limit 1`)
+			q := svc.DB.NewQuery(`select id from units where include_in_dl=1 and metadata_id={:id} limit 1`)
 			q.Bind(dbx.Params{"id": mdResp.ID})
 			var uID int64
 			err := q.Row(&uID)
