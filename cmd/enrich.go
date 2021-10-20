@@ -121,6 +121,17 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	out.Items = make([]enrichData, 0)
 
 	for _, md := range mdRecs {
+		log.Printf("INFO: check for DL published units for metadata catkey %s, PID %s", key, md.PID)
+		uq := svc.DB.NewQuery("select count(id) as cnt from units where where metadata_id={:mid} and include_in_dl={:in}")
+		uq.Bind(dbx.Params{"mid": md.ID})
+		uq.Bind(dbx.Params{"in": 1})
+		var total int
+		uErr := uq.Row(&total)
+		if uErr != nil {
+			log.Printf("INFO: no published units available for %s: %s", key, uErr.Error())
+			continue
+		}
+
 		log.Printf("INFO: get enrich data for %s belonging to catkey %s", md.PID, key)
 		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: md.RightsURI}
 		iiifURL, err := svc.getIIIFManifestURL(md.PID)

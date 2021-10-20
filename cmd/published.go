@@ -87,14 +87,19 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 	}
 
 	type publishedPIDs struct {
+		Total   int      `json:"total"`
 		ItemIDs []string `json:"items"`
 	}
 
 	excludeKeys := make([]string, 0)
-	query := `select distinct catalog_key from metadata where date_dl_ingest is not null and type = 'SirsiMetadata' and catalog_key <> ''`
+	query := `select distinct catalog_key from metadata m
+		inner join units u on u.metadata_id = m.id
+		where date_dl_ingest is not null and type = 'SirsiMetadata' and catalog_key <> '' and u.include_in_dl=1;`
 	if pubType == "other" {
 		query = `select distinct pid from metadata where date_dl_ingest is not null and type = 'XmlMetadata'`
 	} else {
+		// exclude DPLA collection records
+		log.Printf("INFO: get a list of DPLA collection records that should be excluded")
 		excludeSQL := `select distinct mp.catalog_key from metadata mc
 		inner join metadata mp on mc.parent_metadata_id = mp.id
 		where mc.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null
@@ -139,7 +144,8 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 			}
 		}
 	}
-	log.Printf("INFO: found %d %s items published to virgo", len(out.ItemIDs), pubType)
+	out.Total = len(out.ItemIDs)
+	log.Printf("INFO: found %d %s items published to virgo", out.Total, pubType)
 	c.JSON(http.StatusOK, out)
 }
 
