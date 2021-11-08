@@ -122,7 +122,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 
 	for _, md := range mdRecs {
 		log.Printf("INFO: check for DL published units for metadata catkey %s, PID %s", key, md.PID)
-		uq := svc.DB.NewQuery("select count(id) as cnt from units where where metadata_id={:mid} and include_in_dl={:in}")
+		uq := svc.DB.NewQuery("select count(id) as cnt from units where metadata_id={:mid} and include_in_dl={:in}")
 		uq.Bind(dbx.Params{"mid": md.ID})
 		uq.Bind(dbx.Params{"in": 1})
 		var total int
