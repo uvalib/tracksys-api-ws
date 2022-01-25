@@ -39,7 +39,7 @@ func (svc *ServiceContext) getTextInfo(ID int64, field string) textInfo {
 	if !mf.TextSource.Valid {
 		return textInfo{HasOCR: true}
 	}
-	if mf.TextSource.Int16 == 2 {
+	if mf.TextSource.Int64 == 2 {
 		return textInfo{HasTranscription: true}
 	}
 	return textInfo{HasOCR: true}
@@ -183,12 +183,12 @@ func (svc *ServiceContext) updatePIDText(c *gin.Context) {
 	}
 
 	// from TrackSys: {ocr: 0, corrected_ocr: 1, transcription: 2}
-	log.Printf("INFO: master file %s text_source is currently [%d]", pid, mf.TextSource.Int16)
-	if mf.TextSource.Valid == false || mf.TextSource.Int16 == 0 {
+	log.Printf("INFO: master file %s text_source is currently [%d]", pid, mf.TextSource.Int64)
+	if mf.TextSource.Valid == false || mf.TextSource.Int64 == 0 {
 		log.Printf("INFO: updating ocr text for masterfile %s", pid)
 		mf.TranscriptionText = text
 		mf.TextSource.Valid = true
-		mf.TextSource.Int16 = 0
+		mf.TextSource.Int64 = 0
 		dbResp = svc.GDB.Model(mf).Select("TranscriptionText", "TextSource").Updates(mf)
 		if dbResp.Error != nil {
 			log.Printf("ERROR: unable to update master file %s text: %s", pid, dbResp.Error.Error())

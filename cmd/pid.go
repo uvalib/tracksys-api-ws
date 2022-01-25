@@ -74,7 +74,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 		out := pidSummary{ID: mf.ID, PID: pid, Type: "master_file", Title: mf.Title,
 			ParentPID: mf.Metadata.PID, Filename: mf.Filename}
 		if mf.TranscriptionText != "" {
-			if mf.TextSource.Valid && mf.TextSource.Int16 == 2 {
+			if mf.TextSource.Valid && mf.TextSource.Int64 == 2 {
 				out.HasTranscription = true
 			} else {
 				out.HasOCR = true

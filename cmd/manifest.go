@@ -18,7 +18,7 @@ type manifestData struct {
 	Height      uint       `json:"height"`
 	Title       string     `json:"title,omitempty"`
 	Description string     `json:"description,omitempty"`
-	TextSource  int16      `json:"text_source,omitempty"`
+	TextSource  int64      `json:"text_source,omitempty"`
 	Orientation string     `json:"orientation"`
 	ClonedFrom  *cloneData `json:"cloned_from,omitempty"`
 }
@@ -115,7 +115,7 @@ func (svc *ServiceContext) generateManifest(masterFiles *[]masterFile) (*[]manif
 			Title: mf.Title, Description: mf.Description,
 			Width: mf.ImageTechMeta.Width, Height: mf.ImageTechMeta.Height, Orientation: "normal"}
 		if mf.TextSource.Valid {
-			item.TextSource = mf.TextSource.Int16
+			item.TextSource = mf.TextSource.Int64
 		}
 		// convert rails enum to string
 		item.Orientation = orientations[mf.ImageTechMeta.Orientation]
