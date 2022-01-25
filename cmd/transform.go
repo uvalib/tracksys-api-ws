@@ -12,36 +12,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	dbx "github.com/go-ozzo/ozzo-dbx"
 	"github.com/google/uuid"
 )
 
 // SAMPLE CURL:
 // curl -X POST http://localhost:8180/api/transform -H "Content-Type: multipart/form-data" -F user=lf6f -F mode=test -F pid=uva-lib:729248 -F xsl=@/Users/lf6f/dev/test2.xsl -F "comment=just a test transform"
-
-type xmlMetadata struct {
-	ID       int64  `db:"id"`
-	PID      string `db:"pid"`
-	Metadata string `db:"desc_metadata"`
-}
-
-// TableName sets the name of the table in the DB that this struct binds to
-func (u xmlMetadata) TableName() string {
-	return "metadata_versions"
-}
-
-type metadataVersion struct {
-	MetadataID int64  `db:"metadata_id"`
-	UserID     int64  `db:"staff_member_id"`
-	Metadata   string `db:"desc_metadata"`
-	Tag        string `db:"version_tag"`
-	Comment    string `db:"comment"`
-}
-
-// TableName sets the name of the table in the DB that this struct binds to
-func (u metadataVersion) TableName() string {
-	return "metadata_versions"
-}
 
 func (svc *ServiceContext) transformStatus(c *gin.Context) {
 	uuid := c.Param("id")
@@ -92,7 +67,7 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 		return
 	}
 
-	var xmlMD *xmlMetadata
+	var xmlMD *metadata
 	if tgtPID != "" {
 		xmlMD, err = svc.getXMLMetadata(tgtPID)
 		if err != nil {
@@ -184,24 +159,20 @@ func removeTempFile(tmpFilePath string) {
 	}
 }
 
-func (svc *ServiceContext) getXMLMetadata(pid string) (*xmlMetadata, error) {
-	q := svc.DB.NewQuery("select id,pid,desc_metadata from metadata where pid={:pid} and type={:t}")
-	q.Bind(dbx.Params{"pid": pid})
-	q.Bind(dbx.Params{"t": "XmlMetadata"})
-	var md xmlMetadata
-	err := q.One(&md)
-	if err != nil {
-		log.Printf("ERROR: query for %s failed: %s", pid, err.Error())
-		return nil, err
+func (svc *ServiceContext) getXMLMetadata(pid string) (*metadata, error) {
+	var md metadata
+	dbResp := svc.GDB.Where("pid=? and type=?", pid, "XmlMetadata").First(&md)
+	if dbResp.Error != nil {
+		log.Printf("ERROR: query for %s failed: %s", pid, dbResp.Error.Error())
+		return nil, dbResp.Error
 	}
 	return &md, nil
 }
 
 func (svc *ServiceContext) verifyUser(computeID string) (int64, error) {
-	q := svc.DB.NewQuery("select id from staff_members where computing_id={:cid}")
-	q.Bind(dbx.Params{"cid": computeID})
 	var userID int64
-	err := q.Row(&userID)
+	row := svc.GDB.Table("staff_members").Select("id").Where("computing_id=?", computeID).Limit(1).Row()
+	err := row.Scan(&userID)
 	if err != nil {
 		return 0, err
 	}
@@ -221,27 +192,26 @@ func (svc *ServiceContext) applyTransform(mdPID string, xslName string) ([]byte,
 	return xformBytes, nil
 }
 
-func (svc *ServiceContext) createMetadataVersion(newMD []byte, xmlMD *xmlMetadata, xslFileName string, userID int64, comment string) error {
-	if string(newMD) == xmlMD.Metadata {
+func (svc *ServiceContext) createMetadataVersion(newMD []byte, xmlMD *metadata, xslFileName string, userID int64, comment string) error {
+	if string(newMD) == xmlMD.DescMetadata {
 		log.Printf("INFO: no changes detected in %s after transform", xmlMD.PID)
 		return nil
 	}
 	log.Printf("INFO: creating new metadata version for %s", xmlMD.PID)
 
 	tag := strings.Split(xslFileName, ".")[0]
-	version := metadataVersion{MetadataID: xmlMD.ID, UserID: userID, Tag: tag, Metadata: xmlMD.Metadata, Comment: comment}
-	err := svc.DB.Model(&version).Insert()
-	if err != nil {
-		return err
+	version := metadataVersion{MetadataID: xmlMD.ID, StaffMemberID: userID, VersionTag: tag, DescMetadata: xmlMD.DescMetadata, Comment: comment}
+	dbResp := svc.GDB.Create(&version)
+	if dbResp.Error != nil {
+		return dbResp.Error
 	}
 
-	q := svc.DB.NewQuery("update metadata set updated_at={:t}, desc_metadata={:m} where id={:id}")
-	q.Bind(dbx.Params{"t": time.Now()})
-	q.Bind(dbx.Params{"m": string(newMD)})
-	q.Bind(dbx.Params{"id": xmlMD.ID})
-	_, err = q.Execute()
-	if err != nil {
-		return err
+	xmlMD.UpdatedAt.Time = time.Now()
+	xmlMD.UpdatedAt.Valid = true
+	xmlMD.DescMetadata = string(newMD)
+	dbResp = svc.GDB.Model(xmlMD).Select("UpdatedAt", "DescMetadata").Updates(xmlMD)
+	if dbResp.Error != nil {
+		return dbResp.Error
 	}
 
 	return nil
@@ -268,14 +238,10 @@ func (svc *ServiceContext) globalWorker(userID int64, unitPID string, xslName st
 	done := false
 
 	for !done {
-		q := svc.DB.NewQuery("select id,pid,desc_metadata from metadata where type={:t} order by id asc limit {:o},{:l}")
-		q.Bind(dbx.Params{"t": "XmlMetadata"})
-		q.Bind(dbx.Params{"l": pageSize})
-		q.Bind(dbx.Params{"o": startOffset})
-		var mdRecs []xmlMetadata
-		err := q.All(&mdRecs)
-		if err != nil {
-			log.Printf("ERROR: unable to get XmlMetadata records: %s", err.Error())
+		var mdRecs []metadata
+		dbResp := svc.GDB.Where("type=?", "XmlMetadata").Offset(startOffset).Limit(pageSize).Find(&mdRecs)
+		if dbResp.Error != nil {
+			log.Printf("ERROR: unable to get XmlMetadata records: %s", dbResp.Error.Error())
 		}
 
 		logFile.WriteString(fmt.Sprintf("\nProcessing batch of metadata records %d - %d\n", startOffset, startOffset+pageSize))

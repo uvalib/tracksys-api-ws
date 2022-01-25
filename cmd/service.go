@@ -1,7 +1,7 @@
 package main
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -17,8 +17,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	dbx "github.com/go-ozzo/ozzo-dbx"
 	_ "github.com/go-sql-driver/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 // CacheRecord contains mods/uvamap/dpla results that are temporarily cached
@@ -44,18 +45,12 @@ type ServiceContext struct {
 	PDFServiceURL string
 	IIIFManURL    string
 	IIIFURL       string
-	DB            *dbx.DB
+	GDB           *gorm.DB
 	HTTPClient    *http.Client
 	SaxonClient   *http.Client
 	Cache         Cache
 	WorkDir       string
 	Key           string
-}
-
-type cloneData struct {
-	ID       int64  `db:"id"`
-	PID      string `json:"pid"`
-	Filename string `json:"filename"`
 }
 
 // InitializeService sets up the service context for all API handlers
@@ -75,12 +70,11 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	log.Printf("INFO: connecting to DB...")
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
 		cfg.DB.User, cfg.DB.Pass, cfg.DB.Host, cfg.DB.Name)
-	db, err := dbx.Open("mysql", connectStr)
+	gdb, err := gorm.Open(mysql.Open(connectStr), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx.DB = db
-	// db.LogFunc = log.Printf
+	ctx.GDB = gdb
 	log.Printf("INFO: DB Connection established")
 
 	log.Printf("INFO: create HTTP Client...")
@@ -138,11 +132,15 @@ func (svc *ServiceContext) healthCheck(c *gin.Context) {
 	hcMap := make(map[string]hcResp)
 	hcMap["apiservice"] = hcResp{Healthy: true}
 
-	err := svc.DB.DB().Ping()
+	hcMap["database"] = hcResp{Healthy: true}
+	sqlDB, err := svc.GDB.DB()
 	if err != nil {
 		hcMap["database"] = hcResp{Healthy: false, Message: err.Error()}
 	} else {
-		hcMap["database"] = hcResp{Healthy: true}
+		err := sqlDB.Ping()
+		if err != nil {
+			hcMap["database"] = hcResp{Healthy: false, Message: err.Error()}
+		}
 	}
 
 	c.JSON(http.StatusOK, hcMap)
@@ -156,53 +154,33 @@ func (svc *ServiceContext) describeService(c *gin.Context) {
 func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
 	log.Printf("INFO: get thumb url for metadata id %d", mdID)
 	exemplarURL := ""
-	qSQL := `select id,pid,original_mf_id from master_files where metadata_id={:id} and exemplar=1 limit 1`
-	q := svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"id": mdID})
-
-	var mf struct {
-		ID           int64         `db:"id"`
-		PID          string        `db:"pid"`
-		ClonedFromID sql.NullInt64 `db:"original_mf_id"`
-	}
-	err := q.One(&mf)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return "", err
+	var mf masterFile
+	mfResp := svc.GDB.Preload("ImageTechMeta").Where("metadata_id=? and exemplar=1", mdID).First(&mf)
+	if mfResp.Error != nil {
+		if errors.Is(mfResp.Error, gorm.ErrRecordNotFound) == false {
+			return "", mfResp.Error
 		}
 		log.Printf("INFO: no exemplar set for metadata id %d; choosing first masterfile", mdID)
-		qSQL = `select id,pid,original_mf_id from master_files where metadata_id={:id} order by filename asc limit 1`
-		q = svc.DB.NewQuery(qSQL)
-		q.Bind(dbx.Params{"id": mdID})
-		err := q.One(&mf)
-		if err != nil {
-			return "", err
+		mfResp = svc.GDB.Where("metadata_id=?", mdID).Order("filename asc").First(&mf)
+		if mfResp.Error != nil {
+			return "", mfResp.Error
 		}
 	}
 
 	// If ClonedFromID is set, this MF is cloned. Must use original MF for exemplar
-	if mf.ClonedFromID.Valid {
+	if mf.ClonedFrom != 0 {
 		log.Printf("INFO: thumb masterfile %s is a clone; look up original", mf.PID)
-		q := svc.DB.NewQuery(qSQL)
-		q.Bind(dbx.Params{"id": mf.ClonedFromID.Int64})
-		err := q.One(&mf)
-		if err != nil {
-			// a missing original for a clone is always an error and must be logged as such
+		mfResp := svc.GDB.Preload("ImageTechMeta").Find(&mf, mf.ClonedFrom)
+		if mfResp.Error != nil {
 			log.Printf("ERROR: exemplar for %d is a clone, and original %d could not be found: %s",
-				mdID, mf.ClonedFromID.Int64, err.Error())
-			return "", err
+				mdID, mf.ClonedFrom, mfResp.Error.Error())
+			return "", mfResp.Error
 		}
 	}
 
 	// orientation is enum type: none: 0, flip_y_axis: 1, rotate90: 2, rotate180: 3, rotate270
-	// NOTE: orietation is optional and only a handful of items will have this data.
-	qSQL = `select orientation from image_tech_meta where master_file_id={:id} limit 1`
-	q = svc.DB.NewQuery(qSQL)
-	orientationID := 0
 	rotations := []string{"0", "!0", "90", "180", "270"}
-	q.Bind(dbx.Params{"id": mf.ID})
-	q.Row(&orientationID)
-	exemplarURL = fmt.Sprintf("%s/%s/full/!125,200/%s/default.jpg", svc.IIIFURL, mf.PID, rotations[orientationID])
+	exemplarURL = fmt.Sprintf("%s/%s/full/!125,200/%s/default.jpg", svc.IIIFURL, mf.PID, rotations[mf.ImageTechMeta.Orientation])
 
 	return exemplarURL, nil
 }

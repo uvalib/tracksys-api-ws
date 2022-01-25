@@ -1,7 +1,7 @@
 package main
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,22 +9,8 @@ import (
 	"regexp"
 
 	"github.com/gin-gonic/gin"
-	dbx "github.com/go-ozzo/ozzo-dbx"
+	"gorm.io/gorm"
 )
-
-type metadata struct {
-	ID           int64          `db:"id"`
-	PID          string         `db:"pid"`
-	Type         string         `db:"type"`
-	Title        string         `db:"title"`
-	Barcode      sql.NullString `db:"barcode"`
-	CallNumber   sql.NullString `db:"call_number"`
-	CatalogKey   sql.NullString `db:"catalog_key"`
-	Creator      sql.NullString `db:"creator_name"`
-	RightsURI    string         `db:"rights_uri"`
-	Rights       string         `db:"rights"`
-	DescMetadata sql.NullString `db:"desc_metadata"`
-}
 
 func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	queryTxt := c.Query("q")
@@ -35,16 +21,14 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	}
 
 	log.Printf("INFO: search tracksys for %s", queryTxt)
-	qSQL := fmt.Sprintf(`select id,pid,type,title,barcode,call_number from metadata
-			where title like {:qany} or barcode like {:q} or pid like {:q} or call_number like {:q} limit 500`)
-	q := svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"qany": fmt.Sprintf("%%%s%%", queryTxt), "q": fmt.Sprintf("%s%%", queryTxt)})
-	var mdResp []metadataSummary
-	err := q.All(&mdResp)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: search for %s failed: %s", queryTxt, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+	var mdRecs []metadata
+	likeTxt := fmt.Sprintf("%s%%", queryTxt)
+	dbResp := svc.GDB.Where("title like ? or barcode like ? or pid like ? or call_number like ?",
+		fmt.Sprintf("%%%s%%", queryTxt), likeTxt, likeTxt, likeTxt).Limit(500).Find(&mdRecs)
+	if dbResp.Error != nil {
+		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: search for %s failed: %s", queryTxt, dbResp.Error.Error())
+			c.String(http.StatusInternalServerError, dbResp.Error.Error())
 		} else {
 			log.Printf("INFO: search for %s returned no results", queryTxt)
 			c.String(http.StatusNotFound, "not found")
@@ -61,9 +45,9 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 		CallNumber string `json:"call_number,omitempty"`
 	}
 	out := make([]hitData, 0)
-	for _, md := range mdResp {
+	for _, md := range mdRecs {
 		hit := hitData{ID: md.ID, PID: md.PID, Type: md.Type, Title: md.Title,
-			Barcode: md.Barcode.String, CallNumber: md.CallNumber.String}
+			Barcode: md.Barcode, CallNumber: md.CallNumber}
 		out = append(out, hit)
 	}
 
@@ -85,34 +69,25 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	}
 
 	// first, see if it is a masterfile pid and pull the metadata pid...
-	qSQL := `select m.pid from master_files f left outer join metadata m
-		on m.id = f.metadata_id where f.pid={:pid}`
-	q := svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"pid": pid})
-	var newPID string
-	err := q.Row(&newPID)
-	if err == nil {
-		log.Printf("INFO: %s is a master file. Metadata PID=%s", pid, newPID)
-		pid = newPID
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: metadata query to find masterfile %s failed: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	log.Printf("INFO: check if %s is a master file", pid)
+	var mf masterFile
+	dbResp := svc.GDB.Preload("Metadata").Joins("left outer join metadata m on m.id = metadata_id").Where("master_files.pid=?", pid).First(&mf)
+	if dbResp.Error == nil {
+		log.Printf("INFO: %s is a master file. Metadata PID=%s", pid, mf.Metadata.PID)
+		pid = mf.Metadata.PID
+	} else if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: metadata query to find masterfile %s failed: %s", pid, dbResp.Error.Error())
+		c.String(http.StatusInternalServerError, dbResp.Error.Error())
 		return
 	}
 
 	// Now get metadata details
-	qSQL = `select m.id,pid,type,title,call_number,catalog_key,creator_name,
-		barcode, desc_metadata, u.uri as rights_uri, u.statement as rights from metadata m
-		left outer join use_rights u on u.id = m.use_right_id
-		where pid={:pid}`
-	q = svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"pid": pid})
 	var resp metadata
-	err = q.One(&resp)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: %s not found: %s", pid, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+	dbResp = svc.GDB.Preload("UseRight").Where("pid=?", pid).First(&resp)
+	if dbResp.Error != nil {
+		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: %s not found: %s", pid, dbResp.Error.Error())
+			c.String(http.StatusInternalServerError, dbResp.Error.Error())
 		} else {
 			log.Printf("WARNING: %s not found", pid)
 			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
@@ -124,6 +99,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	// issue found after this is an error and should return and log failure instead of not found
 
 	// Simple request for brief metadata on this item
+	var err error
 	if mdType == "brief" {
 		type jsonOut struct {
 			PID             string `json:"pid"`
@@ -135,8 +111,8 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 			RightsStatement string `json:"rightsStatement"`
 			ExemplarURL     string `json:"exemplar"`
 		}
-		out := jsonOut{PID: resp.PID, Title: resp.Title, CallNumber: resp.CallNumber.String,
-			CatalogKey: resp.CatalogKey.String, Creator: resp.Creator.String, RightsURI: resp.RightsURI}
+		out := jsonOut{PID: resp.PID, Title: resp.Title, CallNumber: resp.CallNumber,
+			CatalogKey: resp.CatalogKey, Creator: resp.CreatorName, RightsURI: resp.UseRight.URI}
 
 		// exemplar is only required if an item is published. Many items will not have an exemplar set
 		out.ExemplarURL, err = svc.getExemplarThumbURL(resp.ID)
@@ -144,7 +120,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 			log.Printf("WARNING: brief metadata for %s is missing an exemplar: %s", pid, err)
 		}
 		rs := "Find more information about permission to use the library's materials at https://www.library.virginia.edu/policies/use-of-materials."
-		out.RightsStatement = fmt.Sprintf("%s\n%s", resp.Rights, rs)
+		out.RightsStatement = fmt.Sprintf("%s\n%s", resp.UseRight.Statement, rs)
 		log.Printf("INFO: successful request for brief metadata for %s", resp.PID)
 		c.JSON(http.StatusOK, out)
 		return
@@ -238,15 +214,15 @@ func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
 
 	log.Printf("INFO: Get MARC from Sirsi")
 	url := ""
-	if md.CatalogKey.Valid && md.CatalogKey.String != "" {
-		log.Printf("INFO: lookup sirsi metadata by catalog key [%s]", md.CallNumber.String)
+	if md.CatalogKey != "" {
+		log.Printf("INFO: lookup sirsi metadata by catalog key [%s]", md.CatalogKey)
 		re := regexp.MustCompile(`^u`)
-		cKey := re.ReplaceAll([]byte(md.CatalogKey.String), []byte(""))
+		cKey := re.ReplaceAll([]byte(md.CatalogKey), []byte(""))
 		url = fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
 	} else {
-		if md.Barcode.Valid && md.Barcode.String != "" {
-			log.Printf("INFO: lookup sirsi metadata by barcode [%s]", md.Barcode.String)
-			url = fmt.Sprintf("%s/getMarc?barcode=%s&type=xml", svc.SirsiURL, md.Barcode.String)
+		if md.Barcode != "" {
+			log.Printf("INFO: lookup sirsi metadata by barcode [%s]", md.Barcode)
+			url = fmt.Sprintf("%s/getMarc?barcode=%s&type=xml", svc.SirsiURL, md.Barcode)
 		} else {
 			return nil, fmt.Errorf("sirsi metadata %s has no barcode and no catalog key", md.PID)
 		}
@@ -305,7 +281,7 @@ func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error)
 			log.Printf("INFO: clearing saxon cache for MARC->MODS")
 			payload.Set("clear-stylesheet-cache", "yes")
 		}
-		payload.Set("barcode", md.Barcode.String)
+		payload.Set("barcode", md.Barcode)
 		mods, err := svc.saxonTransform(&payload)
 		if err == nil {
 			log.Printf("INFO: cache MODS for %s", md.PID)
@@ -316,7 +292,7 @@ func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error)
 
 	if md.Type == "XmlMetadata" {
 		log.Printf("INFO: Returning raw MODS from database for %s", md.PID)
-		return []byte(md.DescMetadata.String), nil
+		return []byte(md.DescMetadata), nil
 	}
 
 	return nil, fmt.Errorf("unsupported metadata type %s", md.Type)
@@ -336,7 +312,7 @@ func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, erro
 
 	payload.Set("PID", md.PID)
 	payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
-	payload.Set("useRightsURI", md.RightsURI)
+	payload.Set("useRightsURI", md.UseRight.URI)
 
 	// notes: don't care about this error. the preview URI going away in the next rev
 	// of the stylesheet and this code will no longer be needed

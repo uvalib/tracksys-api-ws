@@ -1,74 +1,55 @@
 package main
 
 import (
-	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 	out := make([]string, 0)
-	query := `
-	select distinct mc.pid as pid from metadata mc
-	inner join metadata mp on mc.parent_metadata_id = mp.id
-	where
-		mc.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null and
-		mc.dpla = 1 and mc.date_dl_ingest is not null
-	order by mp.pid asc`
-	count := 0
-	q := svc.DB.NewQuery(query)
-	rows, err := q.Rows()
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: unable to get DPLA collections info: %s", err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+	var mdRecs []metadata
+	dbResp := svc.GDB.Distinct("metadata.pid").Select("metadata.pid").
+		Joins("inner join metadata mp on metadata.parent_metadata_id = mp.id").
+		Where("metadata.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null and metadata.dpla = 1 and metadata.date_dl_ingest is not null").
+		Order("mp.pid asc").Find(&mdRecs)
+
+	if dbResp.Error != nil {
+		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: unable to get DPLA collections info: %s", dbResp.Error.Error())
+			c.String(http.StatusInternalServerError, dbResp.Error.Error())
 			return
 		}
 		log.Printf("WARNING: DPLA collections info not found")
-	} else {
-		for rows.Next() {
-			var pidRow string
-			re := rows.Scan(&pidRow)
-			if re == nil {
-				out = append(out, pidRow)
-				count++
-			}
-		}
 	}
-
-	log.Printf("INFO: found %d DPLA items in collections", count)
+	for _, r := range mdRecs {
+		out = append(out, r.PID)
+	}
+	log.Printf("INFO: found %d DPLA items in collections", dbResp.RowsAffected)
 
 	// Now get stand-alone DPLA flagged metadata and generate the records
-	query = `select distinct m.pid from metadata m
-	where parent_metadata_id = 0 and dpla = 1 and date_dl_ingest is not null
-	order by m.pid asc`
-	q = svc.DB.NewQuery(query)
-	count = 0
-	rows, err = q.Rows()
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: unable to get standalone DPLA items: %s", err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+	dbResp = svc.GDB.Distinct("metadata.pid").Select("metadata.pid").
+		Where("parent_metadata_id = 0 and dpla = 1 and date_dl_ingest is not null").
+		Order("pid asc").Find(&mdRecs)
+	if dbResp.Error != nil {
+		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: unable to get standalone DPLA items: %s", dbResp.Error.Error())
+			c.String(http.StatusInternalServerError, dbResp.Error.Error())
 			return
 		}
 		log.Printf("WARNING: standalone DPLA items not found")
-	} else {
-		for rows.Next() {
-			var pidRow string
-			re := rows.Scan(&pidRow)
-			if re == nil {
-				out = append(out, pidRow)
-				count++
-			}
-		}
 	}
-	log.Printf("INFO: found %d standalone DPLA items", count)
-	log.Printf("INFO: total DPLA items found: %d", len(out))
+	for _, r := range mdRecs {
+		out = append(out, r.PID)
+	}
+	log.Printf("INFO: found %d standalone DPLA items", dbResp.RowsAffected)
 
+	log.Printf("INFO: found %d TOTAL DPLA items", len(out))
 	c.String(http.StatusOK, strings.Join(out, ", "))
 }
 
@@ -91,59 +72,59 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 		ItemIDs []string `json:"items"`
 	}
 
+	var mdRecs []metadata
+	var dbResp *gorm.DB
 	excludeKeys := make([]string, 0)
-	query := `select distinct catalog_key from metadata m
-		inner join units u on u.metadata_id = m.id
-		where date_dl_ingest is not null and type = 'SirsiMetadata' and catalog_key <> '' and u.include_in_dl=1;`
 	if pubType == "other" {
-		query = `select distinct pid from metadata where date_dl_ingest is not null and type = 'XmlMetadata'`
+		dbResp = svc.GDB.Distinct("metadata.pid").Select("metadata.pid").
+			Where("date_dl_ingest is not null and type = ?", "XmlMetadata").
+			Find(&mdRecs)
 	} else {
-		// exclude DPLA collection records
 		log.Printf("INFO: get a list of DPLA collection records that should be excluded")
-		excludeSQL := `select distinct mp.catalog_key from metadata mc
-		inner join metadata mp on mc.parent_metadata_id = mp.id
-		where mc.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null
-		and mp.catalog_key is not null and mp.catalog_key != 'test'`
-		q := svc.DB.NewQuery(excludeSQL)
-		rows, err := q.Rows()
-		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("ERROR: unable to get collection cat keys: %s", err.Error())
-				c.String(http.StatusInternalServerError, err.Error())
+		var excludeRecs []metadata
+		exResp := svc.GDB.Distinct("mp.catalog_key").Select("mp.catalog_key").
+			Joins("inner join metadata mp on metadata.parent_metadata_id = mp.id").
+			Where("metadata.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null and mp.catalog_key is not null and mp.catalog_key != ?", "test").
+			Find(&excludeRecs)
+		if exResp.Error != nil {
+			if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+				log.Printf("ERROR: unable to get collection cat keys: %s", exResp.Error.Error())
+				c.String(http.StatusInternalServerError, exResp.Error.Error())
 				return
 			}
 			log.Printf("WARNING: collection cat keys not found")
-		} else {
-			for rows.Next() {
-				var ck string
-				re := rows.Scan(&ck)
-				if re == nil {
-					excludeKeys = append(excludeKeys, ck)
-				}
-			}
 		}
+		for _, r := range excludeRecs {
+			excludeKeys = append(excludeKeys, r.CatalogKey)
+		}
+		log.Printf("INFO: excluded: %v", excludeKeys)
+
+		dbResp = svc.GDB.Distinct("catalog_key").Select("catalog_key").
+			Joins("inner join units u on u.metadata_id = metadata.id").
+			Where("date_dl_ingest is not null and type = ? and catalog_key <> ? and u.include_in_dl=1", "SirsiMetadata", "").
+			Find(&mdRecs)
 	}
-	q := svc.DB.NewQuery(query)
-	rows, err := q.Rows()
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: unable to get virgo-published %s items: %s", pubType, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+
+	if dbResp.Error != nil {
+		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: unable to get virgo-published %s items: %s", pubType, dbResp.Error.Error())
+			c.String(http.StatusInternalServerError, dbResp.Error.Error())
 			return
 		}
 		log.Printf("WARNING: virgo-published %s items not found", pubType)
 	}
 
 	out := publishedPIDs{ItemIDs: make([]string, 0)}
-	for rows.Next() {
-		var catKey string
-		re := rows.Scan(&catKey)
-		if re == nil {
-			if !contains(excludeKeys, catKey) {
-				out.ItemIDs = append(out.ItemIDs, catKey)
+	for _, r := range mdRecs {
+		if pubType == "other" {
+			out.ItemIDs = append(out.ItemIDs, r.PID)
+		} else {
+			if !contains(excludeKeys, r.CatalogKey) {
+				out.ItemIDs = append(out.ItemIDs, r.CatalogKey)
 			}
 		}
 	}
+
 	out.Total = len(out.ItemIDs)
 	log.Printf("INFO: found %d %s items published to virgo", out.Total, pubType)
 	c.JSON(http.StatusOK, out)

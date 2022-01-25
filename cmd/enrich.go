@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,20 +8,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	dbx "github.com/go-ozzo/ozzo-dbx"
+	"gorm.io/gorm"
 )
-
-type basicMetadata struct {
-	ID              int64          `db:"id"`
-	PID             string         `db:"pid"`
-	CollectionFacet sql.NullString `db:"collection_facet"`
-	RightsURI       string         `db:"uri"`
-	Educational     bool           `db:"educational_use"`
-	Commercial      bool           `db:"commercial_use"`
-	Modification    bool           `db:"modifications"`
-	CallNumber      string         `db:"call_number"`
-	Barcode         string         `db:"barcode"`
-}
 
 type enrichData struct {
 	PID         string   `json:"pid"`
@@ -38,17 +25,12 @@ type enrichData struct {
 func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	key := c.Param("pid")
 	log.Printf("INFO: get enriched other metadata for PID %s", key)
-	qSQL := `select m.id, pid, collection_facet, educational_use, commercial_use, modifications, uri
-		from metadata m left outer join use_rights u on u.id = m.use_right_id where pid={:id}
-		and date_dl_ingest is not null`
-	q := svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"id": key})
-	var md basicMetadata
-	err := q.One(&md)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: other PID %s not found for enriched metadata: %s", key, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+	var mdRec metadata
+	mdResp := svc.GDB.Preload("UseRight").Where("pid=? and date_dl_ingest is not null", key).First(&mdRec)
+	if mdResp.Error != nil {
+		if errors.Is(mdResp.Error, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: other PID %s not found for enriched metadata: %s", key, mdResp.Error.Error())
+			c.String(http.StatusInternalServerError, mdResp.Error.Error())
 		} else {
 			log.Printf("WARNING: other PID %s not found for enriched metadata", key)
 			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
@@ -59,27 +41,28 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 		PDF string `json:"pdfServiceRoot"`
 		enrichData
 	}
-	out.PID = md.PID
+	out.PID = mdRec.PID
 	out.PDF = svc.PDFServiceURL
-	out.Uses = getUses(&md)
+	out.Uses = getUses(mdRec.UseRight)
+	var err error
 
 	// published items are required to have an exemplar
-	out.ExemplarURL, err = svc.getExemplarThumbURL(md.ID)
+	out.ExemplarURL, err = svc.getExemplarThumbURL(mdRec.ID)
 	if err != nil {
 		log.Printf("ERROR: %s", err)
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	out.Collection = md.CollectionFacet.String
-	iiifURL, err := svc.getIIIFManifestURL(md.PID)
+	out.Collection = mdRec.CollectionFacet
+	iiifURL, err := svc.getIIIFManifestURL(mdRec.PID)
 	if err != nil {
-		log.Printf("ERROR: Unable to get IIIF manifest for %s: %s", md.PID, err.Error())
+		log.Printf("ERROR: Unable to get IIIF manifest for %s: %s", mdRec.PID, err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	out.IIIFManURL = iiifURL
-	out.UseURI = md.RightsURI
+	out.UseURI = mdRec.UseRight.URI
 
 	c.JSON(http.StatusOK, out)
 }
@@ -87,27 +70,17 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	key := c.Param("key")
 	log.Printf("INFO: get enriched sirsi metadata for catalog key %s", key)
-	qSQL := `select m.id, pid, collection_facet, barcode, call_number,
-		educational_use, commercial_use, modifications, uri
-		from metadata m left outer join use_rights u on u.id = m.use_right_id where catalog_key={:id}
-		and date_dl_ingest is not null order by call_number asc`
-	q := svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"id": key})
-	var mdRecs []basicMetadata
-	err := q.All(&mdRecs)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: sirsi %s not found for enriched metadata: %s", key, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+	var mdRecs []metadata
+	mdResp := svc.GDB.Preload("UseRight").Where("catalog_key=? and date_dl_ingest is not null", key).
+		Order("call_number asc").Find(&mdRecs)
+	if mdResp.Error != nil {
+		if errors.Is(mdResp.Error, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: sirsi %s not found for enriched metadata: %s", key, mdResp.Error.Error())
+			c.String(http.StatusInternalServerError, mdResp.Error.Error())
 		} else {
 			log.Printf("WARNING: %s not found", key)
 			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
 		}
-		return
-	}
-	if len(mdRecs) == 0 {
-		log.Printf("WARNING: %s not found", key)
-		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
 		return
 	}
 
@@ -121,19 +94,15 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	out.Items = make([]enrichData, 0)
 
 	for _, md := range mdRecs {
-		log.Printf("INFO: check for DL published units for metadata catkey %s, PID %s", key, md.PID)
-		uq := svc.DB.NewQuery("select count(id) as cnt from units where metadata_id={:mid} and include_in_dl={:in}")
-		uq.Bind(dbx.Params{"mid": md.ID})
-		uq.Bind(dbx.Params{"in": 1})
-		var total int
-		uErr := uq.Row(&total)
-		if uErr != nil {
-			log.Printf("INFO: no published units available for %s: %s", key, uErr.Error())
+		var total int64
+		cntResp := svc.GDB.Table("units").Where("metadata_id=? and include_in_dl=?", md.ID, 1).Count(&total)
+		if cntResp.Error != nil {
+			log.Printf("INFO: no published units available for %s: %s", key, cntResp.Error.Error())
 			continue
 		}
 
 		log.Printf("INFO: get enrich data for %s belonging to catkey %s", md.PID, key)
-		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: md.RightsURI}
+		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: md.UseRight.URI}
 		iiifURL, err := svc.getIIIFManifestURL(md.PID)
 		if err != nil {
 			log.Printf("ERROR: Unable to get IIIF manifest for %s; skipping: %s", md.PID, err.Error())
@@ -148,7 +117,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 			continue
 		}
 
-		item.Uses = getUses(&md)
+		item.Uses = getUses(md.UseRight)
 		out.Items = append(out.Items, item)
 	}
 
@@ -179,15 +148,15 @@ func (svc *ServiceContext) getIIIFManifestURL(pid string) (string, error) {
 	return parsed.URL, nil
 }
 
-func getUses(md *basicMetadata) []string {
+func getUses(rights useRight) []string {
 	uses := make([]string, 0)
-	if md.Educational {
+	if rights.EducationalUse {
 		uses = append(uses, "Educational Use Permitted")
 	}
-	if md.Commercial {
+	if rights.CommercialUse {
 		uses = append(uses, "Commercial Use Permitted")
 	}
-	if md.Modification {
+	if rights.Modifications {
 		uses = append(uses, "Modifications Permitted")
 	}
 	return uses

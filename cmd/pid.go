@@ -1,47 +1,14 @@
 package main
 
 import (
-	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	dbx "github.com/go-ozzo/ozzo-dbx"
+	"gorm.io/gorm"
 )
-
-type metadataSummary struct {
-	ID           int64          `db:"id"`
-	PID          string         `db:"pid"`
-	Type         string         `db:"type"`
-	Title        string         `db:"title"`
-	CallNumber   sql.NullString `db:"call_number"`
-	Barcode      sql.NullString `db:"barcode"`
-	DateDLIngest sql.NullTime   `db:"date_dl_ingest"`
-	Availability sql.NullString `db:"availability"`
-	OCRLangHint  sql.NullString `db:"ocr_language_hint"`
-	OCRHint      sql.NullString `db:"ocr_hint"`
-	OCRCandidate sql.NullBool   `db:"ocr_candidate"`
-}
-
-type masterFileSummary struct {
-	ID           int64          `db:"id"`
-	Title        sql.NullString `db:"title"`
-	Description  sql.NullString `db:"description"`
-	Filename     sql.NullString `db:"filename"`
-	TextSource   sql.NullInt64  `db:"text_source"`
-	Text         sql.NullString `db:"transcription_text"`
-	ParentPID    sql.NullString `db:"parent_pid"`
-	OCRLangHint  sql.NullString `db:"ocr_language_hint"`
-	OCRHint      sql.NullString `db:"ocr_hint"`
-	OCRCandidate sql.NullBool   `db:"ocr_candidate"`
-}
-
-type componentSummary struct {
-	ID           int64          `db:"id"`
-	Title        sql.NullString `db:"title"`
-	DateDLIngest sql.NullTime   `db:"date_dl_ingest"`
-}
 
 type pidSummary struct {
 	ID           int64      `json:"id"`
@@ -61,40 +28,31 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	log.Printf("INFO: get summary for %s", pid)
 
 	// First try metadata...
-	qSQL := `select m.id,type,title,a.name as availability,date_dl_ingest,
-		ocr_language_hint,o.name as ocr_hint,ocr_candidate
-		from metadata m left outer join ocr_hints o on o.id = m.ocr_hint_id
-		left outer join availability_policies a on a.id = availability_policy_id
-		where m.pid={:pid}`
-	q := svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"pid": pid})
-	var mdResp metadataSummary
-	err := q.One(&mdResp)
-	if err == nil {
-		out := pidSummary{ID: mdResp.ID, PID: pid, Title: mdResp.Title, Availability: "private",
-			Type: "sirsi_metadata"}
-		if mdResp.Type == "XmlMetadata" {
+	var md metadata
+	mdResp := svc.GDB.Preload("UseRight").Preload("AvailabilityPolicy").Preload("OCRHint").Where("pid=?", pid).First(&md)
+	if mdResp.Error == nil {
+		out := pidSummary{ID: md.ID, PID: pid, Title: md.Title, Availability: "private", Type: "sirsi_metadata"}
+		if md.Type == "XmlMetadata" {
 			out.Type = "xml_metadata"
-		} else if mdResp.Type == "ExternalMetadata" {
+		} else if md.Type == "ExternalMetadata" {
 			out.Type = "external_metadata"
 		}
-		if mdResp.Availability.Valid {
-			out.Availability = strings.ToLower(strings.Split(mdResp.Availability.String, " ")[0])
-		}
-		if mdResp.OCRLangHint.Valid {
-			out.OCRLanguageHint = mdResp.OCRLangHint.String
-		}
-		if mdResp.OCRHint.Valid {
-			out.OCRHint = mdResp.OCRHint.String
-			out.OCRCandidate = mdResp.OCRCandidate.Bool
+		if md.AvailabilityPolicyID > 0 {
+			out.Availability = strings.ToLower(strings.Split(md.AvailabilityPolicy.Name, " ")[0])
 		}
 
-		if mdResp.DateDLIngest.Valid {
-			q = svc.DB.NewQuery("select id from units where include_in_dl=1 and metadata_id={:id}")
-			q.Bind(dbx.Params{"id": mdResp.ID})
+		if md.OCRHintID > 0 {
+			out.OCRHint = md.OCRHint.Name
+			out.OCRCandidate = md.OCRHint.OCRCandidate
+			out.OCRLanguageHint = md.OCRLanguageHint
+		}
+
+		if md.DateDLIngest.Valid {
 			var unitID int64
-			err = q.Row(&unitID)
+			row := svc.GDB.Table("units").Select("id").Where("include_in_dl=1 and metadata_id=?", md.ID).Limit(1).Row()
+			err := row.Scan(&unitID)
 			if err == nil {
+				log.Printf("INFO: lookup text info for metadata %s, unit %d", md.PID, unitID)
 				txtInfo := svc.getTextInfo(unitID, "unit_id")
 				out.HasOCR = txtInfo.HasOCR
 				out.HasTranscription = txtInfo.HasTranscription
@@ -103,64 +61,55 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 
 		c.JSON(http.StatusOK, out)
 		return
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find PID (metadata) %s: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	} else if errors.Is(mdResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find PID (metadata) %s: %s", pid, mdResp.Error.Error())
+		c.String(http.StatusInternalServerError, mdResp.Error.Error())
 		return
 	}
 
 	// try master file...
-	qSQL = `select f.id,f.title,filename,text_source,transcription_text,m.pid as parent_pid,
-		ocr_language_hint, o.name as ocr_hint,ocr_candidate
-		from master_files f left outer join metadata m on m.id = f.metadata_id
-		left outer join ocr_hints o on o.id = m.ocr_hint_id
-		where f.pid={:pid}`
-	q = svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"pid": pid})
-	var mfResp masterFileSummary
-	err = q.One(&mfResp)
-	if err == nil {
-		out := pidSummary{ID: mfResp.ID, PID: pid, Type: "master_file", Title: mfResp.Title.String,
-			ParentPID: mfResp.ParentPID.String, Filename: mfResp.Filename.String}
-		if mfResp.Text.Valid && mfResp.Text.String != "" {
-			if mfResp.TextSource.Valid && mfResp.TextSource.Int64 == 2 {
+	var mf masterFile
+	mfResp := svc.GDB.Preload("Metadata").Preload("Metadata.OCRHint").Where("pid=?", pid).First(&mf)
+	if mfResp.Error == nil {
+		out := pidSummary{ID: mf.ID, PID: pid, Type: "master_file", Title: mf.Title,
+			ParentPID: mf.Metadata.PID, Filename: mf.Filename}
+		if mf.TranscriptionText != "" {
+			if mf.TextSource.Valid && mf.TextSource.Int16 == 2 {
 				out.HasTranscription = true
 			} else {
 				out.HasOCR = true
 			}
 		}
-		if mfResp.OCRLangHint.Valid {
-			out.OCRLanguageHint = mfResp.OCRLangHint.String
+		if mf.Metadata.OCRLanguageHint != "" {
+			out.OCRLanguageHint = mf.Metadata.OCRLanguageHint
 		}
-		if mfResp.OCRHint.Valid {
-			out.OCRHint = mfResp.OCRHint.String
-			out.OCRCandidate = mfResp.OCRCandidate.Bool
+		if mf.Metadata.OCRHintID > 0 {
+			out.OCRHint = mf.Metadata.OCRHint.Name
+			out.OCRCandidate = mf.Metadata.OCRHint.OCRCandidate
 		}
 		c.JSON(http.StatusOK, out)
 		return
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find PID (master_file) %s: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	} else if errors.Is(mfResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find PID (master_file) %s: %s", pid, mfResp.Error.Error())
+		c.String(http.StatusInternalServerError, mfResp.Error.Error())
 		return
 	}
 
 	// try component...
-	q = svc.DB.NewQuery("select id,title,date_dl_ingest from components where pid={:pid}")
-	q.Bind(dbx.Params{"pid": pid})
-	var cResp componentSummary
-	err = q.One(&cResp)
-	if err == nil {
-		out := pidSummary{ID: cResp.ID, PID: pid, Title: cResp.Title.String, Type: "component"}
-		if cResp.DateDLIngest.Valid {
-			txtInfo := svc.getTextInfo(cResp.ID, "component_id")
+	var cmp component
+	cErr := svc.GDB.Where("pid=?", pid).First(&cmp)
+	if cErr.Error == nil {
+		out := pidSummary{ID: cmp.ID, PID: pid, Title: cmp.Title, Type: "component"}
+		if cmp.DateDLIngest.Valid {
+			txtInfo := svc.getTextInfo(cmp.ID, "component_id")
 			out.HasOCR = txtInfo.HasOCR
 			out.HasTranscription = txtInfo.HasTranscription
 		}
 		c.JSON(http.StatusOK, out)
 		return
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find PID (component) %s: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	} else if errors.Is(cErr.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find PID (component) %s: %s", pid, cErr.Error.Error())
+		c.String(http.StatusInternalServerError, cErr.Error.Error())
 		return
 	}
 
@@ -173,69 +122,62 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 	log.Printf("INFO: get type for %s", pid)
 
 	// First try metadata
-	qSQL := `select type,e.name as ext_system from metadata m left outer join external_systems e
-		on e.id = m.external_system_id where pid={:pid}`
-	q := svc.DB.NewQuery(qSQL)
-	q.Bind(dbx.Params{"pid": pid})
-	var resp struct {
-		Type   string         `db:"type"`
-		System sql.NullString `db:"ext_system"`
-	}
-	err := q.One(&resp)
-	if err == nil {
-		// No error; this is PID is metadata, find out the type
-		if resp.Type == "SirsiMetadata" {
-			log.Printf("%s is sirsi metadata", pid)
+	var md metadata
+	dbResp := svc.GDB.Preload("ExternalSystem").Where("pid=?", pid).First(&md)
+	if dbResp.Error == nil {
+		log.Printf("%+v", md.ExternalSystem)
+		if md.Type == "SirsiMetadata" {
+			log.Printf("INFO: %s is sirsi metadata", pid)
 			c.String(http.StatusOK, "sirsi_metadata")
-		} else if resp.Type == "XmlMetadata" {
-			log.Printf("%s is xml metadata", pid)
+		} else if md.Type == "XmlMetadata" {
+			log.Printf("INFO: %s is xml metadata", pid)
 			c.String(http.StatusOK, "xml_metadata")
-		} else if resp.Type == "ExternalMetadata" && resp.System.String == "ArchivesSpace" {
-			log.Printf("%s is archivesSpace metadata", pid)
+		} else if md.Type == "ExternalMetadata" && md.ExternalSystem.Name == "ArchivesSpace" {
+			log.Printf("INFO: %s is archivesSpace metadata", pid)
 			c.String(http.StatusOK, "archivesspace_metadata")
-		} else if resp.Type == "ExternalMetadata" && resp.System.String == "Apollo" {
-			log.Printf("%s is apollo metadata", pid)
+		} else if md.Type == "ExternalMetadata" && md.ExternalSystem.Name == "Apollo" {
+			log.Printf("INFO: %s is apollo metadata", pid)
 			c.String(http.StatusOK, "apollo_metadata")
-		} else if resp.Type == "ExternalMetadata" && resp.System.String == "JSTOR Forum" {
-			log.Printf("%s is jstor metadata", pid)
+		} else if md.Type == "ExternalMetadata" && md.ExternalSystem.Name == "JSTOR Forum" {
+			log.Printf("INFO: %s is jstor metadata", pid)
 			c.String(http.StatusOK, "jstor_metadata")
 		} else {
-			log.Printf("WARN: %s is an unsupported metadata type: %s", pid, resp.Type)
+			log.Printf("WARN: %s is an unsupported metadata type: %s", pid, md.Type)
 			c.String(http.StatusBadRequest, "unsupported metadata type")
 		}
 		return
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find PID (metadata) %s: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	} else if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find PID (metadata) %s: %s", pid, dbResp.Error.Error())
+		c.String(http.StatusInternalServerError, dbResp.Error.Error())
 		return
 	}
 
 	// see if it is a component...
-	var ID uint64
-	q = svc.DB.NewQuery(`select id from components where pid={:pid}`)
-	q.Bind(dbx.Params{"pid": pid})
-	err = q.Row(&ID)
-	if err == nil {
-		log.Printf("%s is a component", pid)
-		c.String(http.StatusOK, "component")
-		return
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find PID (component) %s: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	var cnt int64
+	dbResp = svc.GDB.Table("components").Where("pid=?", pid).Count(&cnt)
+	if dbResp.Error == nil {
+		if cnt == 1 {
+			log.Printf("%s is a component", pid)
+			c.String(http.StatusOK, "component")
+			return
+		}
+	} else if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find PID (component) %s: %s", pid, dbResp.Error.Error())
+		c.String(http.StatusInternalServerError, dbResp.Error.Error())
 		return
 	}
 
 	// last chance... master file?
-	q = svc.DB.NewQuery(`select id from master_files where pid={:pid}`)
-	q.Bind(dbx.Params{"pid": pid})
-	err = q.Row(&ID)
-	if err == nil {
-		log.Printf("%s is a master file", pid)
-		c.String(http.StatusOK, "masterfile")
-		return
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find PID (master_file) %s: %s", pid, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	dbResp = svc.GDB.Table("master_files").Where("pid=?", pid).Count(&cnt)
+	if dbResp.Error == nil {
+		if cnt == 1 {
+			log.Printf("%s is a master file", pid)
+			c.String(http.StatusOK, "masterfile")
+			return
+		}
+	} else if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find PID (master_file) %s: %s", pid, dbResp.Error.Error())
+		c.String(http.StatusInternalServerError, dbResp.Error.Error())
 		return
 	}
 
@@ -246,53 +188,33 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
 	pid := c.Param("pid")
 	log.Printf("INFO: get rights for %s", pid)
-	q := svc.DB.NewQuery(`select id,availability_policy_id from metadata where pid={:pid}`)
-	q.Bind(dbx.Params{"pid": pid})
-	var resp struct {
-		ID      int64         `db:"id"`
-		AvailID sql.NullInt64 `db:"availability_policy_id"`
-	}
-	err := q.One(&resp)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			log.Printf("ERROR: unable to find availability for %s: %s", pid, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+	var md metadata
+	apResp := svc.GDB.Preload("AvailabilityPolicy").Where("pid=?", pid).First(&md)
+	if apResp.Error == nil {
+		if md.AvailabilityPolicy.Name == "" {
+			c.String(http.StatusOK, "private")
 			return
 		}
+		c.String(http.StatusOK, strings.ToLower(strings.Split(md.AvailabilityPolicy.Name, " ")[0]))
+		return
+	} else if errors.Is(apResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find availability for %s: %s", pid, apResp.Error.Error())
+		c.String(http.StatusInternalServerError, apResp.Error.Error())
+		return
+	}
 
-		qSQL := `select f.id,availability_policy_id from master_files f
-			inner join metadata m on m.id = f.metadata_id
-			inner join availability_policies a on a.id = m.availability_policy_id
-			where f.pid={:pid}`
-		q = svc.DB.NewQuery(qSQL)
-		q.Bind(dbx.Params{"pid": pid})
-		err = q.One(&resp)
-		if err != nil {
-			if err != sql.ErrNoRows {
-				log.Printf("ERROR: unable to find availability for %s: %s", pid, err.Error())
-				c.String(http.StatusInternalServerError, err.Error())
-			} else {
-				log.Printf("WARNING: unable to find availability for %s", pid)
-				c.String(http.StatusNotFound, "not found")
-			}
+	var mf masterFile
+	apResp = svc.GDB.Preload("Metadata.AvailabilityPolicy").Where("master_files.pid=?", pid).First(&mf)
+	if apResp.Error == nil {
+		if mf.Metadata.AvailabilityPolicy.Name == "" {
+			c.String(http.StatusOK, "private")
 			return
 		}
-	}
-
-	if !resp.AvailID.Valid {
-		c.String(http.StatusOK, "private")
+		c.String(http.StatusOK, strings.ToLower(strings.Split(mf.Metadata.AvailabilityPolicy.Name, " ")[0]))
 		return
-	}
-	q = svc.DB.NewQuery("select name from availability_policies where id={:id}")
-	q.Bind(dbx.Params{"id": resp.AvailID})
-	var rights string
-	err = q.Row(&rights)
-	if err == nil {
-		c.String(http.StatusOK, strings.ToLower(strings.Split(rights, " ")[0]))
-		return
-	} else if err != sql.ErrNoRows {
-		log.Printf("ERROR: unable to find availability policy %d: %s", resp.AvailID.Int64, err.Error())
-		c.String(http.StatusInternalServerError, err.Error())
+	} else if errors.Is(apResp.Error, gorm.ErrRecordNotFound) == false {
+		log.Printf("ERROR: unable to find availability for %s: %s", pid, apResp.Error.Error())
+		c.String(http.StatusInternalServerError, apResp.Error.Error())
 		return
 	}
 
