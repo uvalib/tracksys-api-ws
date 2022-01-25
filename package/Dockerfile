@@ -1,7 +1,7 @@
 #
 # build the target application
 #
-FROM golang:1.16.5-alpine3.13 as builder
+FROM golang:1.17.6-alpine3.15 as builder
 RUN apk update && apk upgrade && apk add make
 
 WORKDIR /build
@@ -14,7 +14,7 @@ RUN make linux
 #
 # build the target container
 #
-FROM alpine:3.13
+FROM alpine:3.15
 
 # update the packages
 RUN apk update && apk upgrade && apk add bash tzdata ca-certificates curl && rm -fr /var/cache/apk/*
