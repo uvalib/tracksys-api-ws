@@ -97,7 +97,7 @@ type masterFile struct {
 	Filename          string        `json:"filename"`
 	Title             string        `json:"title"`
 	Description       string        `json:"description"`
-	TextSource        sql.NullInt16 `json:"text_source"`
+	TextSource        sql.NullInt64 `json:"text_source"`
 	TranscriptionText string        `json:"text"`
 	ClonedFrom        int64         `gorm:"column:original_mf_id" json:"cloned_from"`
 	ImageTechMeta     imageTechMeta `json:"tech_meta"`
