@@ -9,6 +9,12 @@
       },
       {
          "method": "GET",
+         "uri": "/api/aptrust",
+         "description": "Get an APTrust submissions report",
+         "respone": "JSON"
+      },
+      {
+         "method": "GET",
          "uri": "/api/circulation",
          "description": "Get a circulation report for the date range specified",
          "respone": "JSON",

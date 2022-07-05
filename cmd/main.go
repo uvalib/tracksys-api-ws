@@ -10,7 +10,7 @@ import (
 )
 
 // Version of the service
-const version = "2.5.0"
+const version = "2.6.0"
 
 func main() {
 	log.Printf("===> TrackSys API service starting up <===")
@@ -39,6 +39,8 @@ func main() {
 	{
 		api.GET("/circulation", svc.getCirculationData)
 		api.GET("/manifest/:pid", svc.getManifest)
+
+		api.GET("/aptrust", svc.getApTrustReport)
 
 		api.GET("/published/dpla", svc.getPublishedDPLA)
 		api.GET("/published/virgo", svc.getPublishedVirgo)

@@ -2,7 +2,16 @@ package main
 
 import (
 	"database/sql"
+	"time"
 )
+
+type apTrustStatus struct {
+	ID          int64     `json:"-"`
+	MetadataPID string    `gorm:"column:metadata_pid" json:"metadataPID"`
+	Etag        string    `json:"etag"`
+	ObjectID    string    `json:"objectID"`
+	FinishedAt  time.Time `json:"submittedAt"`
+}
 
 type availabilityPolicy struct {
 	ID   int64  `json:"id"`
