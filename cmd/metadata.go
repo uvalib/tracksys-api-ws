@@ -55,6 +55,24 @@ func (svc *ServiceContext) searchMetadata(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (svc *ServiceContext) getExemplar(c *gin.Context) {
+	pid := c.Param("pid")
+	var minMetadata struct {
+		ID int64
+	}
+	err := svc.GDB.Table("metadata").Where("pid=?", pid).First(&minMetadata).Error
+	if err != nil {
+		log.Printf("ERROR: unable to get metadata for %s: %s", pid, err.Error())
+		return
+	}
+	url, err := svc.getExemplarThumbURL(minMetadata.ID)
+	if err != nil {
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.String(http.StatusOK, url)
+}
+
 func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	pid := c.Param("pid")
 	mdType := c.Query("type")
