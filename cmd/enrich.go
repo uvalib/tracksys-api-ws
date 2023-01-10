@@ -43,6 +43,7 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	}
 	out.PID = mdRec.PID
 	out.PDF = svc.PDFServiceURL
+	out.Collection = mdRec.CollectionFacet
 	out.Uses = getUses(mdRec.UseRight)
 	var err error
 
@@ -88,12 +89,14 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 		SirsiID string       `json:"sirsiId"`
 		PDF     string       `json:"pdfServiceRoot"`
 		Items   []enrichData `json:"items"`
+		enrichData
 	}
 	out.SirsiID = key
 	out.PDF = svc.PDFServiceURL
 	out.Items = make([]enrichData, 0)
 
 	for _, md := range mdRecs {
+		out.Collection = md.CollectionFacet
 		var total int64
 		cntResp := svc.GDB.Table("units").Where("metadata_id=? and include_in_dl=?", md.ID, 1).Count(&total)
 		if cntResp.Error != nil {
