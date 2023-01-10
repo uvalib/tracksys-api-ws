@@ -86,10 +86,10 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	}
 
 	var out struct {
-		SirsiID string       `json:"sirsiId"`
-		PDF     string       `json:"pdfServiceRoot"`
-		Items   []enrichData `json:"items"`
-		enrichData
+		SirsiID    string       `json:"sirsiId"`
+		PDF        string       `json:"pdfServiceRoot"`
+		Collection string       `json:"collection,omitempty"`
+		Items      []enrichData `json:"items"`
 	}
 	out.SirsiID = key
 	out.PDF = svc.PDFServiceURL
