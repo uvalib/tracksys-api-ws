@@ -69,7 +69,8 @@ type metadata struct {
 	ExternalSystem       externalSystem     `gorm:"foreignKey:ExternalSystemID" json:"external_system"`
 	ExternalURI          string             `gorm:"column:external_uri" json:"external_uri,omitempty"`
 	DateDLIngest         sql.NullTime       `gorm:"date_dl_ingest" json:"date_dl_ingest"`
-	UpdatedAt            sql.NullTime       `json:"updated_at"`
+	CreatedAt            time.Time          `json:"created_at"`
+	UpdatedAt            sql.NullTime       `json:"updated_at,omitempty"`
 }
 
 type metadataVersion struct {

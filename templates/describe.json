@@ -129,7 +129,7 @@
       {
          "method": "GET",
          "uri": "/api/report/archivesspace?days=:number",
-         "description": "Get a CSV report of additions/updates to ArchivesSpace metadata within the last number of days",
+         "description": "Get a CSV report of additions to ArchivesSpace metadata within the last :number of days",
          "respone": "CSV file"
       }
    ]

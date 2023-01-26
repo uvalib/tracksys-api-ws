@@ -399,8 +399,8 @@ func (svc *ServiceContext) getArchivesSpaceReport(c *gin.Context) {
 	negDays := numDays * -1
 	minDate := time.Now().AddDate(0, 0, negDays)
 	var asRecs []metadata
-	err = svc.GDB.Where("external_system_id=? and external_uri != ? and updated_at > ?", asInfo.ID, "", minDate).
-		Order("updated_at desc").Find(&asRecs).Error
+	err = svc.GDB.Where("external_system_id=? and external_uri != ? and created_at > ?", asInfo.ID, "", minDate).
+		Order("created_at desc").Find(&asRecs).Error
 	if err != nil {
 		log.Printf("ERROR: unable to get archivesspace report: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
@@ -415,7 +415,7 @@ func (svc *ServiceContext) getArchivesSpaceReport(c *gin.Context) {
 		line := []string{
 			as.PID,
 			as.Title,
-			as.UpdatedAt.Time.Format("2006-01-02"),
+			as.CreatedAt.Format("2006-01-02"),
 			fmt.Sprintf("%s%s", asInfo.PublicURL, as.ExternalURI),
 			fmt.Sprintf("%s/metadata/%d", svc.TrackSysURL, as.ID),
 		}
