@@ -399,7 +399,8 @@ func (svc *ServiceContext) getArchivesSpaceReport(c *gin.Context) {
 	negDays := numDays * -1
 	minDate := time.Now().AddDate(0, 0, negDays)
 	var asRecs []metadata
-	err = svc.GDB.Debug().Where("external_system_id=? and external_uri != ? and updated_at > ?", asInfo.ID, "", minDate).Find(&asRecs).Error
+	err = svc.GDB.Where("external_system_id=? and external_uri != ? and updated_at > ?", asInfo.ID, "", minDate).
+		Order("updated_at desc").Find(&asRecs).Error
 	if err != nil {
 		log.Printf("ERROR: unable to get archivesspace report: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())

@@ -125,6 +125,12 @@
          "uri": "/api/transform/:uuid/status",
          "description": "Check the status of a global transform. UUID is returned from POST /api/tramsform",
          "respone": "Text log of global transform progress"
+      },
+      {
+         "method": "GET",
+         "uri": "/api/report/archivesspace?days=:number",
+         "description": "Get a CSV report of additions/updates to ArchivesSpace metadata within the last number of days",
+         "respone": "CSV file"
       }
    ]
 }
