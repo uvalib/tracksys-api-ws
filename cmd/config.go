@@ -23,6 +23,7 @@ type ServiceConfig struct {
 	PDFServiceURL string
 	IIIFManURL    string
 	IIIFURL       string
+	TrackSysURL   string
 	APIURL        string
 	WorkDir       string
 	WriteKey      string
@@ -39,7 +40,8 @@ func LoadConfiguration() *ServiceConfig {
 	flag.StringVar(&cfg.PDFServiceURL, "pdf", "https://pdfservice.lib.virginia.edu/pdf", "PDF service URL")
 	flag.StringVar(&cfg.IIIFManURL, "iiifman", "https://iiifman.lib.virginia.edu", "IIIF Manifest service URL")
 	flag.StringVar(&cfg.IIIFURL, "iiif", "https://iiif.lib.virginia.edu/iiif", "IIIF service URL")
-	flag.StringVar(&cfg.APIURL, "api", "https://iiif.lib.virginia.edu/iiif", "This API service URL")
+	flag.StringVar(&cfg.TrackSysURL, "tracksys", "https://tracksys2.lib.virginia.edu", "TrackSys URL")
+	flag.StringVar(&cfg.APIURL, "api", "", "This API service URL")
 	flag.StringVar(&cfg.WorkDir, "work", "/tmp", "Working dir")
 	flag.StringVar(&cfg.WriteKey, "key", "", "Access key for POST requests")
 
@@ -52,6 +54,9 @@ func LoadConfiguration() *ServiceConfig {
 
 	flag.Parse()
 
+	if cfg.APIURL == "" {
+		log.Fatal("Parameter api is required")
+	}
 	if cfg.DB.Host == "" {
 		log.Fatal("Parameter dbhost is required")
 	}
@@ -72,6 +77,7 @@ func LoadConfiguration() *ServiceConfig {
 	log.Printf("[CONFIG] api           = [%s]", cfg.APIURL)
 	log.Printf("[CONFIG] sirsi         = [%s]", cfg.SirsiURL)
 	log.Printf("[CONFIG] saxon         = [%s]", cfg.SaxonURL)
+	log.Printf("[CONFIG] tracksys      = [%s]", cfg.TrackSysURL)
 	log.Printf("[CONFIG] pdf           = [%s]", cfg.PDFServiceURL)
 	log.Printf("[CONFIG] iiifman       = [%s]", cfg.IIIFManURL)
 	log.Printf("[CONFIG] iiif          = [%s]", cfg.IIIFURL)

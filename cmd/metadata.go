@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -374,4 +377,49 @@ func (svc *ServiceContext) getDPLA(md metadata, clearCache bool) ([]byte, error)
 	log.Printf("INFO: cache DPLA for %s", md.PID)
 	svc.updateCache("dpla", md.PID, dplaBytes)
 	return dplaBytes, nil
+}
+
+func (svc *ServiceContext) getArchivesSpaceReport(c *gin.Context) {
+	numDays, _ := strconv.Atoi(c.Query("days"))
+	if numDays == 0 {
+		log.Printf("ERROR: invalid archivesspace report; days param is zero or missing")
+		c.String(http.StatusBadRequest, "non-zero days param is required")
+		return
+	}
+
+	var asInfo externalSystem
+	err := svc.GDB.Where("name=?", "ArchivesSpace").First(&asInfo).Error
+	if err != nil {
+		log.Printf("ERROR: unable to get archivesspace system info: %s", err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	log.Printf("INFO: get report of archivesspace addditions in the last %d days", numDays)
+	negDays := numDays * -1
+	minDate := time.Now().AddDate(0, 0, negDays)
+	var asRecs []metadata
+	err = svc.GDB.Debug().Where("external_system_id=? and external_uri != ? and updated_at > ?", asInfo.ID, "", minDate).Find(&asRecs).Error
+	if err != nil {
+		log.Printf("ERROR: unable to get archivesspace report: %s", err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.Header("Content-Type", "text/csv")
+	cw := csv.NewWriter(c.Writer)
+	csvHead := []string{"pid", "title", "date", "archivesspace_url", "tracksys_url"}
+	cw.Write(csvHead)
+	for _, as := range asRecs {
+		line := []string{
+			as.PID,
+			as.Title,
+			as.UpdatedAt.Time.Format("2006-01-02"),
+			fmt.Sprintf("%s%s", asInfo.PublicURL, as.ExternalURI),
+			fmt.Sprintf("%s/metadata/%d", svc.TrackSysURL, as.ID),
+		}
+		cw.Write(line)
+	}
+
+	cw.Flush()
 }

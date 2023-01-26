@@ -42,6 +42,7 @@ type ServiceContext struct {
 	APIURL        string
 	SirsiURL      string
 	SaxonURL      string
+	TrackSysURL   string
 	PDFServiceURL string
 	IIIFManURL    string
 	IIIFURL       string
@@ -59,6 +60,7 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 		APIURL:        cfg.APIURL,
 		SirsiURL:      cfg.SirsiURL,
 		SaxonURL:      cfg.SaxonURL,
+		TrackSysURL:   cfg.TrackSysURL,
 		PDFServiceURL: cfg.PDFServiceURL,
 		IIIFManURL:    cfg.IIIFManURL,
 		IIIFURL:       cfg.IIIFURL,

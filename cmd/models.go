@@ -44,7 +44,7 @@ type externalSystem struct {
 	ID        uint   `json:"id"`
 	Name      string `json:"name"`
 	PublicURL string `json:"public_url"`
-	APIURL    string `gorm:"column:api_url" jjson:"api_url"`
+	APIURL    string `gorm:"column:api_url" json:"api_url"`
 }
 
 type metadata struct {
@@ -67,6 +67,7 @@ type metadata struct {
 	AvailabilityPolicy   availabilityPolicy `gorm:"foreignKey:AvailabilityPolicyID" json:"availability_policy"`
 	ExternalSystemID     uint               `json:"-"`
 	ExternalSystem       externalSystem     `gorm:"foreignKey:ExternalSystemID" json:"external_system"`
+	ExternalURI          string             `gorm:"column:external_uri" json:"external_uri,omitempty"`
 	DateDLIngest         sql.NullTime       `gorm:"date_dl_ingest" json:"date_dl_ingest"`
 	UpdatedAt            sql.NullTime       `json:"updated_at"`
 }
