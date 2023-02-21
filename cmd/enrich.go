@@ -26,7 +26,7 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	key := c.Param("pid")
 	log.Printf("INFO: get enriched other metadata for PID %s", key)
 	var mdRec metadata
-	mdResp := svc.GDB.Preload("UseRight").Where("pid=? and date_dl_ingest is not null", key).First(&mdRec)
+	mdResp := svc.GDB.Where("pid=? and date_dl_ingest is not null", key).First(&mdRec)
 	if mdResp.Error != nil {
 		if errors.Is(mdResp.Error, gorm.ErrRecordNotFound) == false {
 			log.Printf("ERROR: other PID %s not found for enriched metadata: %s", key, mdResp.Error.Error())
@@ -37,6 +37,9 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 		}
 		return
 	}
+
+	// FIXME pull UVAMAP data and parse out rughtsURI
+
 	var out struct {
 		PDF string `json:"pdfServiceRoot"`
 		enrichData
@@ -44,7 +47,8 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 	out.PID = mdRec.PID
 	out.PDF = svc.PDFServiceURL
 	out.Collection = mdRec.CollectionFacet
-	out.Uses = getUses(mdRec.UseRight)
+	out.UseURI = "http://rightsstatements.org/vocab/CNE/1.0/" // FIXME use real URI parsed from the UVAMAP data
+	// out.Uses = getUses(mdRec.UseRight)  // FIXME change this to take URI as a param, then look up and apply the uses
 	var err error
 
 	// published items are required to have an exemplar
@@ -63,7 +67,6 @@ func (svc *ServiceContext) getEnrichedOtherMetadata(c *gin.Context) {
 		return
 	}
 	out.IIIFManURL = iiifURL
-	out.UseURI = mdRec.UseRight.URI
 
 	c.JSON(http.StatusOK, out)
 }
@@ -72,7 +75,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	key := c.Param("key")
 	log.Printf("INFO: get enriched sirsi metadata for catalog key %s", key)
 	var mdRecs []metadata
-	mdResp := svc.GDB.Preload("UseRight").Where("catalog_key=? and date_dl_ingest is not null", key).
+	mdResp := svc.GDB.Where("catalog_key=? and date_dl_ingest is not null", key).
 		Order("call_number asc").Find(&mdRecs)
 	if mdResp.Error != nil {
 		if errors.Is(mdResp.Error, gorm.ErrRecordNotFound) == false {
@@ -104,8 +107,20 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 			continue
 		}
 
+		mdUseRight := svc.CNE
+		respBytes, err := svc.getMarc(md)
+		if err != nil {
+			log.Printf("ERROR: Unable to get MARC for %s, default to CNE: %s", md.PID, err.Error())
+		} else {
+			mdUseRight, err = svc.getUseRightFromMARC(respBytes)
+			if err != nil {
+				log.Printf("INFO: unable to extract use righ from marc for metadata %s; default to CNE: %s", md.PID, err.Error())
+				mdUseRight = svc.CNE
+			}
+		}
+
 		log.Printf("INFO: get enrich data for %s belonging to catkey %s", md.PID, key)
-		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: md.UseRight.URI}
+		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: mdUseRight.URI}
 		iiifURL, err := svc.getIIIFManifestURL(md.PID)
 		if err != nil {
 			log.Printf("ERROR: Unable to get IIIF manifest for %s; skipping: %s", md.PID, err.Error())
@@ -120,7 +135,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 			continue
 		}
 
-		item.Uses = getUses(md.UseRight)
+		item.Uses = getUses(mdUseRight)
 		out.Items = append(out.Items, item)
 	}
 
@@ -151,7 +166,8 @@ func (svc *ServiceContext) getIIIFManifestURL(pid string) (string, error) {
 	return parsed.URL, nil
 }
 
-func getUses(rights useRight) []string {
+func getUses(rights *useRight) []string {
+	log.Printf("INFO: get uses for use right %s", rights.Name)
 	uses := make([]string, 0)
 	if rights.EducationalUse {
 		uses = append(uses, "Educational Use Permitted")

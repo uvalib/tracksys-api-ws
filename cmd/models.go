@@ -58,8 +58,6 @@ type metadata struct {
 	CreatorName          string             `json:"creator_name"`
 	DescMetadata         string             `json:"desc_metadata,omitempty"`
 	CollectionFacet      string             `json:"collection_facet,omitempty"`
-	UseRightID           uint               `json:"-"`
-	UseRight             useRight           `gorm:"foreignKey:UseRightID" json:"use_right"`
 	OCRHintID            uint               `json:"-"`
 	OCRHint              ocrHint            `gorm:"foreignKey:OCRHintID" json:"ocr_hint"`
 	OCRLanguageHint      string             `json:"ocrLanguageHint"`

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/csv"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
@@ -9,53 +10,37 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-func (svc *ServiceContext) searchMetadata(c *gin.Context) {
-	queryTxt := c.Query("q")
-	if queryTxt == "" {
-		log.Printf("ERROR: search requested with no query")
-		c.String(http.StatusBadRequest, "q parameter required")
-		return
-	}
+type subField struct {
+	XMLName xml.Name `xml:"subfield"`
+	Code    string   `xml:"code,attr"`
+	Value   string   `xml:",chardata"`
+}
 
-	log.Printf("INFO: search tracksys for %s", queryTxt)
-	var mdRecs []metadata
-	likeTxt := fmt.Sprintf("%s%%", queryTxt)
-	dbResp := svc.GDB.Where("title like ? or barcode like ? or pid like ? or call_number like ?",
-		fmt.Sprintf("%%%s%%", queryTxt), likeTxt, likeTxt, likeTxt).Limit(500).Find(&mdRecs)
-	if dbResp.Error != nil {
-		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
-			log.Printf("ERROR: search for %s failed: %s", queryTxt, dbResp.Error.Error())
-			c.String(http.StatusInternalServerError, dbResp.Error.Error())
-		} else {
-			log.Printf("INFO: search for %s returned no results", queryTxt)
-			c.String(http.StatusNotFound, "not found")
-		}
-		return
-	}
+type dataField struct {
+	XMLName   xml.Name   `xml:"datafield"`
+	Tag       string     `xml:"tag,attr"`
+	Subfields []subField `xml:"subfield"`
+	Value     string     `xml:",chardata"`
+}
 
-	type hitData struct {
-		ID         int64  `json:"id"`
-		PID        string `json:"pid"`
-		Type       string `json:"type"`
-		Title      string `json:"title"`
-		Barcode    string `json:"barcode,omitempty"`
-		CallNumber string `json:"call_number,omitempty"`
-	}
-	out := make([]hitData, 0)
-	for _, md := range mdRecs {
-		hit := hitData{ID: md.ID, PID: md.PID, Type: md.Type, Title: md.Title,
-			Barcode: md.Barcode, CallNumber: md.CallNumber}
-		out = append(out, hit)
-	}
+type controlField struct {
+	XMLName xml.Name `xml:"controlfield"`
+	Tag     string   `xml:"tag,attr"`
+	Value   string   `xml:",chardata"`
+}
 
-	log.Printf("%d hits found for %s", len(out), queryTxt)
-	c.JSON(http.StatusOK, out)
+type marcMetadata struct {
+	XMLName       xml.Name       `xml:"record"`
+	Leader        string         `xml:"leader"`
+	ControlFields []controlField `xml:"controlfield"`
+	DataFields    []dataField    `xml:"datafield"`
 }
 
 func (svc *ServiceContext) getExemplar(c *gin.Context) {
@@ -104,7 +89,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 
 	// Now get metadata details
 	var resp metadata
-	dbResp = svc.GDB.Preload("UseRight").Where("pid=?", pid).First(&resp)
+	dbResp = svc.GDB.Where("pid=?", pid).First(&resp)
 	if dbResp.Error != nil {
 		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
 			log.Printf("ERROR: %s not found: %s", pid, dbResp.Error.Error())
@@ -133,7 +118,8 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 			ExemplarURL     string `json:"exemplar"`
 		}
 		out := jsonOut{PID: resp.PID, Title: resp.Title, CallNumber: resp.CallNumber,
-			CatalogKey: resp.CatalogKey, Creator: resp.CreatorName, RightsURI: resp.UseRight.URI}
+			CatalogKey: resp.CatalogKey, Creator: resp.CreatorName,
+			RightsURI: svc.CNE.URI} // FIXME use a real vlue
 
 		// exemplar is only required if an item is published. Many items will not have an exemplar set
 		out.ExemplarURL, err = svc.getExemplarThumbURL(resp.ID)
@@ -141,7 +127,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 			log.Printf("WARNING: brief metadata for %s is missing an exemplar: %s", pid, err)
 		}
 		rs := "Find more information about permission to use the library's materials at https://www.library.virginia.edu/policies/use-of-materials."
-		out.RightsStatement = fmt.Sprintf("%s\n%s", resp.UseRight.Statement, rs)
+		out.RightsStatement = fmt.Sprintf("%s\n%s", svc.CNE.Statement, rs) // FIXME use real value
 		log.Printf("INFO: successful request for brief metadata for %s", resp.PID)
 		c.JSON(http.StatusOK, out)
 		return
@@ -333,7 +319,7 @@ func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, erro
 
 	payload.Set("PID", md.PID)
 	payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
-	payload.Set("useRightsURI", md.UseRight.URI)
+	payload.Set("useRightsURI", "http://rightsstatements.org/vocab/CNE/1.0/") // FIUXME REMOVE THIS WHEN XSLT HAS BEEN UPDATED
 
 	// notes: don't care about this error. the preview URI going away in the next rev
 	// of the stylesheet and this code will no longer be needed
@@ -377,6 +363,45 @@ func (svc *ServiceContext) getDPLA(md metadata, clearCache bool) ([]byte, error)
 	log.Printf("INFO: cache DPLA for %s", md.PID)
 	svc.updateCache("dpla", md.PID, dplaBytes)
 	return dplaBytes, nil
+}
+
+func (svc *ServiceContext) getUseRightFromMARC(marcXML []byte) (*useRight, error) {
+	log.Printf("INFO: extract use right from marc metadata")
+	var marcUseRight useRight
+	var parsed marcMetadata
+	parseErr := xml.Unmarshal(marcXML, &parsed)
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	if len(parsed.ControlFields) == 0 && len(parsed.DataFields) == 0 {
+		return nil, fmt.Errorf("no matches found in sirsi")
+	}
+
+	useRightName := ""
+	for _, df := range parsed.DataFields {
+		if df.Tag == "856" {
+			// use rights are held in 856 r (uri), t (name/statement), u (item uri)
+			for _, sf := range df.Subfields {
+				if sf.Code == "t" {
+					useRightName = strings.TrimSpace(sf.Value)
+					break
+				}
+			}
+		}
+	}
+
+	if useRightName == "" {
+		return nil, fmt.Errorf("no use right data found in MARC record")
+	}
+
+	log.Printf("INFO: lookup details for %s", useRightName)
+	err := svc.GDB.Where("name=?", useRightName).First(&marcUseRight).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &marcUseRight, nil
 }
 
 func (svc *ServiceContext) getArchivesSpaceReport(c *gin.Context) {

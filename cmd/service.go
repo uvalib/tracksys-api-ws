@@ -52,6 +52,7 @@ type ServiceContext struct {
 	Cache         Cache
 	WorkDir       string
 	Key           string
+	CNE           *useRight
 }
 
 // InitializeService sets up the service context for all API handlers
@@ -83,6 +84,14 @@ func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	sqlDB.SetMaxOpenConns(10)
 	ctx.GDB = gdb
 	log.Printf("INFO: DB Connection established")
+
+	log.Printf("INFO: lookup CNE use right")
+	var cne useRight
+	err = ctx.GDB.First(&cne, 1).Error
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx.CNE = &cne
 
 	log.Printf("INFO: create HTTP Client...")
 	defaultTransport := &http.Transport{

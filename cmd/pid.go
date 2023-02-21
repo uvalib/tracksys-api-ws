@@ -29,7 +29,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 
 	// First try metadata...
 	var md metadata
-	mdResp := svc.GDB.Preload("UseRight").Preload("AvailabilityPolicy").Preload("OCRHint").Where("pid=?", pid).First(&md)
+	mdResp := svc.GDB.Preload("AvailabilityPolicy").Preload("OCRHint").Where("pid=?", pid).First(&md)
 	if mdResp.Error == nil {
 		out := pidSummary{ID: md.ID, PID: pid, Title: md.Title, Availability: "private", Type: "sirsi_metadata"}
 		if md.Type == "XmlMetadata" {

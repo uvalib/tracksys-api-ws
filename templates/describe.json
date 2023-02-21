@@ -59,12 +59,6 @@
       },
       {
          "method": "GET",
-         "uri": "/api/enriched/other/:pid",
-         "description": "Get enriched metadata for an XML item published to Virgo by PID",
-         "respone": "JSON"
-      },
-      {
-         "method": "GET",
          "uri": "/api/pid/:pid",
          "description": "Get a brief summary for any PID",
          "respone": "JSON"
@@ -96,13 +90,8 @@
          ]
       },
       {
-         "uri": "/api/search?q=[:query]",
-         "description": "Does a basic search over all metadata and returns broef details on all hits.",
-         "respone": "JSON"
-      },
-      {
          "method": "GET",
-         "uri": "/api/metadata/:pid?type=(brief|mods|marc)",
+         "uri": "/api/metadata/:pid?type=(brief|mods|marc|fixedmarc|uvamap|dpla)",
          "description": "Get metadata for a PID. Type is required. Not all PIDs support all types of metadata.",
          "respone": "Depends on type: brief=JSON, other=XML"
       },
