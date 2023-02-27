@@ -20,6 +20,9 @@ type pidSummary struct {
 	ParentPID    string     `json:"parent_metadata_pid,omitempty"`
 	TextSource   string     `json:"text_source,omitempty"`
 	ClonedFrom   *cloneData `json:"cloned_from,omitempty"`
+	Barcode      string     `json:"barcode,omitempty"`
+	CallNumber   string     `json:"call_number,omitempty"`
+	CatalogKey   string     `json:"catalog_key,omitempty"`
 	ocrSummary
 }
 
@@ -59,6 +62,12 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 			}
 		}
 
+		if md.Type == "SirsiMetadata" {
+			out.CatalogKey = md.CatalogKey
+			out.Barcode = md.Barcode
+			out.CallNumber = md.CallNumber
+		}
+
 		c.JSON(http.StatusOK, out)
 		return
 	} else if errors.Is(mdResp.Error, gorm.ErrRecordNotFound) == false {
@@ -69,7 +78,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 
 	// try master file...
 	var mf masterFile
-	mfResp := svc.GDB.Preload("Metadata").Preload("Metadata.OCRHint").Where("pid=?", pid).First(&mf)
+	mfResp := svc.GDB.Preload("Metadata").Preload("Metadata.OCRHint").Preload("Metadata.AvailabilityPolicy").Where("pid=?", pid).First(&mf)
 	if mfResp.Error == nil {
 		out := pidSummary{ID: mf.ID, PID: pid, Type: "master_file", Title: mf.Title,
 			ParentPID: mf.Metadata.PID, Filename: mf.Filename}
@@ -80,12 +89,21 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 				out.HasOCR = true
 			}
 		}
+
+		if mf.Metadata.AvailabilityPolicyID > 0 {
+			out.Availability = strings.ToLower(strings.Split(mf.Metadata.AvailabilityPolicy.Name, " ")[0])
+		}
 		if mf.Metadata.OCRLanguageHint != "" {
 			out.OCRLanguageHint = mf.Metadata.OCRLanguageHint
 		}
 		if mf.Metadata.OCRHintID > 0 {
 			out.OCRHint = mf.Metadata.OCRHint.Name
 			out.OCRCandidate = mf.Metadata.OCRHint.OCRCandidate
+		}
+		if mf.Metadata.Type == "SirsiMetadata" {
+			out.CatalogKey = mf.Metadata.CatalogKey
+			out.Barcode = mf.Metadata.Barcode
+			out.CallNumber = mf.Metadata.CallNumber
 		}
 		c.JSON(http.StatusOK, out)
 		return
@@ -182,42 +200,5 @@ func (svc *ServiceContext) getPIDType(c *gin.Context) {
 	}
 
 	log.Printf("WARNING: PID %s not found in database", pid)
-	c.String(http.StatusNotFound, "not found")
-}
-
-func (svc *ServiceContext) getPIDAccess(c *gin.Context) {
-	pid := c.Param("pid")
-	log.Printf("INFO: get rights for %s", pid)
-	var md metadata
-	apResp := svc.GDB.Preload("AvailabilityPolicy").Where("pid=?", pid).First(&md)
-	if apResp.Error == nil {
-		if md.AvailabilityPolicy.Name == "" {
-			c.String(http.StatusOK, "private")
-			return
-		}
-		c.String(http.StatusOK, strings.ToLower(strings.Split(md.AvailabilityPolicy.Name, " ")[0]))
-		return
-	} else if errors.Is(apResp.Error, gorm.ErrRecordNotFound) == false {
-		log.Printf("ERROR: unable to find availability for %s: %s", pid, apResp.Error.Error())
-		c.String(http.StatusInternalServerError, apResp.Error.Error())
-		return
-	}
-
-	var mf masterFile
-	apResp = svc.GDB.Preload("Metadata.AvailabilityPolicy").Where("master_files.pid=?", pid).First(&mf)
-	if apResp.Error == nil {
-		if mf.Metadata.AvailabilityPolicy.Name == "" {
-			c.String(http.StatusOK, "private")
-			return
-		}
-		c.String(http.StatusOK, strings.ToLower(strings.Split(mf.Metadata.AvailabilityPolicy.Name, " ")[0]))
-		return
-	} else if errors.Is(apResp.Error, gorm.ErrRecordNotFound) == false {
-		log.Printf("ERROR: unable to find availability for %s: %s", pid, apResp.Error.Error())
-		c.String(http.StatusInternalServerError, apResp.Error.Error())
-		return
-	}
-
-	log.Printf("WARNING: %s not found in database", pid)
 	c.String(http.StatusNotFound, "not found")
 }
