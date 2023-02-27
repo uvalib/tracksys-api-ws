@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet xmlns="http://www.loc.gov/MARC21/slim"
+<xsl:stylesheet xmlns="http://www.loc.gov/MARC21/slim" xmlns:marc="http://www.loc.gov/MARC21/slim"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema"
-  exclude-result-prefixes="xs" version="2.0">
+  exclude-result-prefixes="marc xs" version="2.0">
 
   <xsl:output method="xml" indent="yes"/>
   <xsl:strip-space elements="*"/>
 
   <!-- ======================================================================= -->
+  <!-- PARAMETERS                                                              -->
+  <!-- ======================================================================= -->
+  <xsl:param name="keep999s" select="'true'"/>
+
+  <!-- ======================================================================= -->
   <!-- GLOBAL VARIABLES                                                        -->
   <!-- ======================================================================= -->
-
   <xsl:variable name="marcDatafieldDesc">
-    <!--<xsl:copy-of select="document('marcDesc.xml')//*:datafield"/>-->
     <marcDesc xmlns:sch="http://purl.oclc.org/dsdl/schematron"
       xmlns:sqf="http://www.schematron-quickfix.com/validator/process"
       xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
@@ -41,7 +44,7 @@
           <assert
             test="count(preceding::*:subfield[@code = '8'][matches(substring(., 1, string-length($linkingNumber)), $linkingNumber)]) + count(following::*:subfield[@code = '8'][matches(substring(., 1, string-length($linkingNumber)), $linkingNumber)]) &gt; 0"
             role="warning">There are usually at least two subfield 8s with the same linkingNumber
-            (<value-of select="$linkingNumber"/>)</assert>
+              (<value-of select="$linkingNumber"/>)</assert>
         </rule>
       </pattern>
       <pattern xmlns="http://purl.oclc.org/dsdl/schematron" tag="-1000">
@@ -49,9 +52,7 @@
         <rule context="*:subfield[@code = '8'][matches(., '^[0-9]+\.[0-9]+')]">
           <let name="linkingSequence" value="replace(., '^([0-9]+\.[0-9]+).*$', '$1')"/>
           <assert
-            test="
-              count(preceding::*:subfield[@code = '8'][matches(substring(., 1, string-length($linkingSequence)), $linkingSequence)]) +
-              count(following::*:subfield[@code = '8'][matches(substring(., 1, string-length($linkingSequence)), $linkingSequence)]) = 0"
+            test="count(preceding::*:subfield[@code = '8'][matches(substring(., 1, string-length($linkingSequence)), $linkingSequence)]) + count(following::*:subfield[@code = '8'][matches(substring(., 1, string-length($linkingSequence)), $linkingSequence)]) = 0"
             >Linking sequence (<value-of select="$linkingSequence"/>) is not unique.</assert>
         </rule>
       </pattern>
@@ -65,8 +66,8 @@
           260 or 264 is recommended.</assert>
         <pattern>
           <title>Co-constraint between 008/33 and 6xx datafield(s)</title>
-          <rule
-            context="*:record[matches(substring(*:leader, 7, 1), 'a|m') and matches(substring(*:leader, 8, 1), 'a|c|d|m') and *:datafield[matches(@tag, '^6')]]">
+          <rule context="*:record[matches(substring(*:leader, 7, 1), 'a|m') and
+            matches(substring(*:leader, 8, 1), 'a|c|d|m') and *:datafield[matches(@tag, '^6')]]">
             <assert
               test="*:controlfield[@tag = '008'][matches(substring(text(), 34, 1), '0|\||\s')]"
               role="warning">Typically, subject headings are applied only to non-fiction
@@ -1401,8 +1402,8 @@
         <subfield code="3" repeat="NR" desc="Materials specified"/>
         <subfield code="6" repeat="NR" desc="Linkage"/>
         <subfield code="8" repeat="R" desc="Field link and sequence number"/>
-        <rule
-          context="*:datafield[@tag = '260' and matches(substring(../*:leader, 8, 1), '[am]') and not(../*:datafield[@tag = '502'])]">
+        <rule context="*:datafield[@tag = '260' and matches(substring(../*:leader, 8, 1), '[am]')
+          and not(../*:datafield[@tag = '502'])]">
           <assert test="*:subfield[@code = 'a']" role="warning">Subfield $a is recommended.</assert>
           <assert test="*:subfield[@code = 'b']" role="warning">Subfield $b is recommended.</assert>
           <assert test="*:subfield[@code = 'c']" role="warning">Subfield $c is recommended.</assert>
@@ -1439,8 +1440,8 @@
         <subfield code="6" repeat="NR" desc="Linkage"/>
         <subfield code="8" repeat="R" desc="Field link and sequence number"/>
       </datafield>
-      <datafield tag="264" repeat="R"
-        desc="Production, publication, distribution, manufacture, and copyright notice">
+      <datafield tag="264" repeat="R" desc="Production, publication, distribution, manufacture, and
+        copyright notice">
         <ind1 values=" 23" desc="Sequence of statements"/>
         <ind2 values="0-4" desc="Function of entity"/>
         <subfield code="a" repeat="R" desc="Place of production, publication, distribution, manufacture"/>
@@ -1487,8 +1488,8 @@
         <subfield code="3" repeat="NR" desc="Materials specified"/>
         <subfield code="6" repeat="NR" desc="Linkage"/>
         <subfield code="8" repeat="R" desc="Field link and sequence number"/>
-        <rule
-          context="*:datafield[@tag = '300' and  matches(substring(../*:leader, 7, 1), '[at]') and matches(substring(../*:leader, 8, 1), '[am]')]">
+        <rule context="*:datafield[@tag = '300' and  matches(substring(../*:leader, 7, 1), '[at]')
+          and matches(substring(../*:leader, 8, 1), '[am]')]">
           <assert test="*:subfield[@code = 'a']" role="warning">Subfield $a is recommended.</assert>
           <assert test="*:subfield[@code = 'c']" role="warning">Subfield $c is recommended.</assert>
         </rule>
@@ -1882,8 +1883,8 @@
         <subfield code="6" repeat="NR" desc="Linkage"/>
         <subfield code="8" repeat="R" desc="Field link and sequence number"/>
       </datafield>
-      <datafield tag="381" repeat="R"
-        desc="Other distinguishing characteristics of work or expression">
+      <datafield tag="381" repeat="R" desc="Other distinguishing characteristics of work or
+        expression">
         <ind1 values=" " desc="Undefined"/>
         <ind2 values=" " desc="Undefined"/>
         <subfield code="a" repeat="R" desc="Other distinguishing characteristics"/>
@@ -5087,10 +5088,17 @@
         test="matches(substring(../*:leader, 7, 1), '[at]') and matches(substring(../*:leader, 8, 1), '[acdm]')">
         <xsl:variable name="illus">
           <xsl:choose>
-            <!-- Keep letters, fill remaining positions with spaces -->
+            <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 19, 4), '\p{Zs}{4}|\|{4}|[a-mop]{4}|[a-mop]{3}\p{Zs}|[a-mop]{2}\p{Zs}{2}|[a-mop]\p{Zs}{3}')">
-              <xsl:value-of select="substring(., 19, 4)"/>
+              <xsl:value-of select="replace(substring(., 19, 4), '\p{Zs}', '&#32;')"/>
+            </xsl:when>
+            <!-- Keep existing codes, fill remaining positions with spaces -->
+            <xsl:when test="matches(substring(., 19, 4), '[a-mop]')">
+              <xsl:variable name="codes">
+                <xsl:value-of select="replace(substring(., 19, 4), '[^a-mop]', '')"/>
+              </xsl:variable>
+              <xsl:value-of select="substring(concat($codes, '&#32;&#32;&#32;&#32;'), 1, 4)"/>
             </xsl:when>
             <!-- Fill with 'no attempt to code' value -->
             <xsl:otherwise>
@@ -5102,7 +5110,7 @@
           <xsl:choose>
             <!-- Keep compliant value -->
             <xsl:when test="matches(substring(., 23, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 23, 1)"/>
+              <xsl:value-of select="replace(substring(., 23, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Fill with 'no attempt to code' value -->
             <xsl:otherwise>
@@ -5113,7 +5121,7 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 24, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 24, 1)"/>
+              <xsl:value-of select="replace(substring(., 24, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5122,10 +5130,17 @@
         </xsl:variable>
         <xsl:variable name="contentNature">
           <xsl:choose>
-            <!-- Keep letters, fill remaining positions with spaces -->
+            <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 25, 4), '[a-gij-wyz256]{4}|\|{4}|\p{Zs}{4}|[a-gij-wyz256]{3}(\p{Zs}|\|)|[a-gij-wyz256]{2}(\p{Zs}{2}|\|{2})|[a-gij-wyz256](\p{Zs}{3}|\|{3})')">
-              <xsl:value-of select="substring(., 25, 4)"/>
+              <xsl:value-of select="replace(substring(., 25, 4), '\p{Zs}', '&#32;')"/>
+            </xsl:when>
+            <!-- Keep existing codes, fill remaining positions with spaces -->
+            <xsl:when test="matches(substring(., 25, 4), '[a-gij-wyz256]')">
+              <xsl:variable name="codes">
+                <xsl:value-of select="replace(substring(., 25, 4), '[^a-gij-wyz256]', '')"/>
+              </xsl:variable>
+              <xsl:value-of select="substring(concat($codes, '&#32;&#32;&#32;&#32;'), 1, 4)"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>||||</xsl:text>
@@ -5135,7 +5150,7 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <xsl:when test="matches(substring(., 29, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 29, 1)"/>
+              <xsl:value-of select="replace(substring(., 29, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5145,7 +5160,7 @@
         <xsl:variable name="confPub">
           <xsl:choose>
             <xsl:when test="matches(substring(., 30, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 30, 1)"/>
+              <xsl:value-of select="replace(substring(., 30, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5155,7 +5170,7 @@
         <xsl:variable name="festschrift">
           <xsl:choose>
             <xsl:when test="matches(substring(., 31, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 31, 1)"/>
+              <xsl:value-of select="replace(substring(., 31, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5165,7 +5180,7 @@
         <xsl:variable name="index">
           <xsl:choose>
             <xsl:when test="matches(substring(., 32, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 32, 1)"/>
+              <xsl:value-of select="replace(substring(., 32, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5177,9 +5192,39 @@
         </xsl:variable>
         <xsl:variable name="litForm">
           <xsl:choose>
-            <xsl:when test="matches(substring(., 34, 1), '[01defhijmpsu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 34, 1)"/>
+            <!-- Purported to be non-fiction -->
+            <xsl:when test="matches(substring(., 34, 1), '0')">
+              <xsl:choose>
+                <!-- When classed in "P" and no 6xx fields, mark as fiction -->
+                <xsl:when
+                  test="../*:datafield[matches(@tag, '999')]/*:subfield[@code = 'a'][matches(., '^P')] and not(../*:datafield[matches(@tag, '^6')])">
+                  <text>1</text>
+                </xsl:when>
+                <!-- Retain non-fiction designation -->
+                <xsl:otherwise>
+                  <text>0</text>
+                </xsl:otherwise>
+              </xsl:choose>
             </xsl:when>
+            <!-- Purported to be fiction -->
+            <xsl:when test="matches(substring(., 34, 1), '1')">
+              <xsl:choose>
+                <!-- When not classed in "P" and 6xx fields are present, mark as non-fiction -->
+                <xsl:when
+                  test="not(../*:datafield[matches(@tag, '999')]/*:subfield[@code = 'a'][matches(., '^P')]) and ../*:datafield[matches(@tag, '^6')]">
+                  <text>0</text>
+                </xsl:when>
+                <!-- Retain fiction designation -->
+                <xsl:otherwise>
+                  <text>1</text>
+                </xsl:otherwise>
+              </xsl:choose>
+            </xsl:when>
+            <!-- Pass through specific litForm values -->
+            <xsl:when test="matches(substring(., 34, 1), '[defhijmpsu\|\p{Zs}]')">
+              <xsl:value-of select="replace(substring(., 34, 1), '\p{Zs}', '&#32;')"/>
+            </xsl:when>
+            <!-- "No attempt to code" default value -->
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
             </xsl:otherwise>
@@ -5188,7 +5233,7 @@
         <xsl:variable name="biography">
           <xsl:choose>
             <xsl:when test="matches(substring(., 35, 1), '[\p{Zs}a-d\|]')">
-              <xsl:value-of select="substring(., 35, 1)"/>
+              <xsl:value-of select="replace(substring(., 35, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5207,7 +5252,7 @@
         <xsl:variable name="audience">
           <xsl:choose>
             <xsl:when test="matches(substring(., 23, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 23, 1)"/>
+              <xsl:value-of select="replace(substring(., 23, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5217,7 +5262,7 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 24, 1), '[\p{Zs}oq\|]')">
-              <xsl:value-of select="substring(., 24, 1)"/>
+              <xsl:value-of select="replace(substring(., 24, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5243,7 +5288,7 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <xsl:when test="matches(substring(., 29, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 29, 1)"/>
+              <xsl:value-of select="replace(substring(., 29, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5263,7 +5308,7 @@
           <xsl:choose>
             <xsl:when
               test="matches(substring(., 19, 4), '[a-gijkmz]{4}|\|{4}|\p{Zs}{4}|[a-gijkmz]{3}\p{Zs}|[a-gijkmz]{2}\p{Zs}{2}|[a-gijkmz]\p{Zs}{3}')">
-              <xsl:value-of select="substring(., 19, 4)"/>
+              <xsl:value-of select="replace(substring(., 19, 4), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>||||</xsl:text>
@@ -5274,7 +5319,7 @@
           <xsl:choose>
             <xsl:when
               test="matches(substring(., 23, 2), '(\p{Zs}\p{Zs}|aa|ab|ac|ad|ae|af|ag|am|an|ap|au|az|ba|bb|bc|bd|be|bf|bg|bh|bi|bj|bk|bl|bo|br|bs|bu|bz|ca|cb|cc|ce|cp|cu|cz|da|db|dc|dd|de|df|dg|dh|dl|zz|\|\|)')">
-              <xsl:value-of select="substring(., 23, 2)"/>
+              <xsl:value-of select="replace(substring(., 23, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>||</xsl:text>
@@ -5287,7 +5332,7 @@
         <xsl:variable name="cartographicType">
           <xsl:choose>
             <xsl:when test="matches(substring(., 26, 1), '[a-guz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 26, 1)"/>
+              <xsl:value-of select="replace(substring(., 26, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5300,7 +5345,7 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <xsl:when test="matches(substring(., 29, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 29, 1)"/>
+              <xsl:value-of select="replace(substring(., 29, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5310,7 +5355,7 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 30, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 30, 1)"/>
+              <xsl:value-of select="replace(substring(., 30, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5323,7 +5368,7 @@
         <xsl:variable name="index">
           <xsl:choose>
             <xsl:when test="matches(substring(., 32, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 32, 1)"/>
+              <xsl:value-of select="replace(substring(., 32, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5337,7 +5382,7 @@
           <xsl:choose>
             <xsl:when
               test="matches(substring(., 34, 2), '[ejklnoprz]{2}|\|{2}|\p{Zs}{2}|[ejklnoprz]{1}\p{Zs}')">
-              <xsl:value-of select="substring(., 34, 2)"/>
+              <xsl:value-of select="replace(substring(., 34, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>||</xsl:text>
@@ -5354,7 +5399,7 @@
           <xsl:choose>
             <xsl:when
               test="matches(substring(., 19, 2), '(an|bd|bg|bl|bt|ca|cb|cc|cg|ch|cl|cn|co|cp|cr|cs|ct|cy|cz|df|dv|fg|fl|fm|ft|gm|hy|jz|mc|md|mi|mo|mp|mr|ms|mu|mz|nc|nn|op|or|ov|pg|pm|po|pp|pr|ps|pt|pv|rc|rd|rg|ri|rp|rq|sd|sg|sn|sp|st|su|sy|tc|tl|ts|uu|vi|vr|wz|za|zz|\|\||\p{Zs}\p{Zs})')">
-              <xsl:value-of select="substring(., 19, 2)"/>
+              <xsl:value-of select="replace(substring(., 19, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>||</xsl:text>
@@ -5364,7 +5409,7 @@
         <xsl:variable name="musicFormat">
           <xsl:choose>
             <xsl:when test="matches(substring(., 21, 1), '[a-eg-npuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 21, 1)"/>
+              <xsl:value-of select="replace(substring(., 21, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5374,7 +5419,7 @@
         <xsl:variable name="musicParts">
           <xsl:choose>
             <xsl:when test="matches(substring(., 22, 1), '[\p{Zs}defnu\|]')">
-              <xsl:value-of select="substring(., 22, 1)"/>
+              <xsl:value-of select="replace(substring(., 22, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5384,7 +5429,7 @@
         <xsl:variable name="audience">
           <xsl:choose>
             <xsl:when test="matches(substring(., 23, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 23, 1)"/>
+              <xsl:value-of select="replace(substring(., 23, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5394,7 +5439,7 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 24, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 24, 1)"/>
+              <xsl:value-of select="replace(substring(., 24, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5405,7 +5450,7 @@
           <xsl:choose>
             <xsl:when
               test="matches(substring(., 25, 6), '[a-ikrsz]{6}|[\p{Zs}\|]{6}|[a-ikrsz]{5}[\p{Zs}\|]|[a-ikrsz]{4}[\p{Zs}\|]{2}|[a-ikrsz]{3}[\p{Zs}\|]{3}|[a-ikrsz]{2}[\p{Zs}\|]{4}|[a-ikrsz][\p{Zs}\|]{5}')">
-              <xsl:value-of select="substring(., 25, 6)"/>
+              <xsl:value-of select="replace(substring(., 25, 6), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>||||||</xsl:text>
@@ -5416,7 +5461,7 @@
           <xsl:choose>
             <xsl:when
               test="matches(substring(., 31, 2), '[a-prstz]{2}|\|{2}|\p{Zs}{2}|[a-prstz]\p{Zs}')">
-              <xsl:value-of select="substring(., 31, 2)"/>
+              <xsl:value-of select="replace(substring(., 31, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>||</xsl:text>
@@ -5429,7 +5474,7 @@
         <xsl:variable name="transpoArrangement">
           <xsl:choose>
             <xsl:when test="matches(substring(., 34, 1), '[\p{Zs}abcnu\|]')">
-              <xsl:value-of select="substring(., 34, 1)"/>
+              <xsl:value-of select="replace(substring(., 34, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5449,7 +5494,7 @@
         <xsl:variable name="frequency">
           <xsl:choose>
             <xsl:when test="matches(substring(., 19, 1), '[\p{Zs}a-kmqstuwz\|]')">
-              <xsl:value-of select="substring(., 19, 1)"/>
+              <xsl:value-of select="replace(substring(., 19, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5459,7 +5504,7 @@
         <xsl:variable name="regularity">
           <xsl:choose>
             <xsl:when test="matches(substring(., 20, 1), '[nrux\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 20, 1)"/>
+              <xsl:value-of select="replace(substring(., 20, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5472,7 +5517,7 @@
         <xsl:variable name="resourceType">
           <xsl:choose>
             <xsl:when test="matches(substring(., 22, 1), '[\p{Zs}dlmnpw\|]')">
-              <xsl:value-of select="substring(., 22, 1)"/>
+              <xsl:value-of select="replace(substring(., 22, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5482,7 +5527,7 @@
         <xsl:variable name="originalForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 23, 1), '[\p{Zs}a-foqs\|]')">
-              <xsl:value-of select="substring(., 23, 1)"/>
+              <xsl:value-of select="replace(substring(., 23, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5492,7 +5537,7 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 24, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 24, 1)"/>
+              <xsl:value-of select="replace(substring(., 24, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5502,7 +5547,7 @@
         <xsl:variable name="workNature">
           <xsl:choose>
             <xsl:when test="matches(substring(., 25, 1), '[\p{Zs}a-ik-wyz56\|]')">
-              <xsl:value-of select="substring(., 25, 1)"/>
+              <xsl:value-of select="replace(substring(., 25, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5513,7 +5558,7 @@
           <xsl:choose>
             <xsl:when
               test="matches(substring(., 26, 3), '[a-ik-wyz56]{3}|\|{3}|\p{Zs}{3}|[a-ik-wyz56]{2}\p{Zs}|[a-ik-wyz56]\p{Zs}{2}')">
-              <xsl:value-of select="substring(., 26, 3)"/>
+              <xsl:value-of select="replace(substring(., 26, 3), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|||</xsl:text>
@@ -5523,7 +5568,7 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <xsl:when test="matches(substring(., 29, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 29, 1)"/>
+              <xsl:value-of select="replace(substring(., 29, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5533,7 +5578,7 @@
         <xsl:variable name="confPub">
           <xsl:choose>
             <xsl:when test="matches(substring(., 30, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 30, 1)"/>
+              <xsl:value-of select="replace(substring(., 30, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5546,7 +5591,7 @@
         <xsl:variable name="alphaScript">
           <xsl:choose>
             <xsl:when test="matches(substring(., 34, 1), '[\p{Zs}a-luz\|]')">
-              <xsl:value-of select="substring(., 34, 1)"/>
+              <xsl:value-of select="replace(substring(., 34, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5556,7 +5601,7 @@
         <xsl:variable name="entryConvention">
           <xsl:choose>
             <xsl:when test="matches(substring(., 35, 1), '[012\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 35, 1)"/>
+              <xsl:value-of select="replace(substring(., 35, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5586,7 +5631,7 @@
         <xsl:variable name="audience">
           <xsl:choose>
             <xsl:when test="matches(substring(., 23, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 23, 1)"/>
+              <xsl:value-of select="replace(substring(., 23, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5599,7 +5644,7 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <xsl:when test="matches(substring(., 29, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 29, 1)"/>
+              <xsl:value-of select="replace(substring(., 29, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5609,7 +5654,7 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 30, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 30, 1)"/>
+              <xsl:value-of select="replace(substring(., 30, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5622,7 +5667,7 @@
         <xsl:variable name="materialType">
           <xsl:choose>
             <xsl:when test="matches(substring(., 34, 1), '[a-dfgik-tvwz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 34, 1)"/>
+              <xsl:value-of select="replace(substring(., 34, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5632,7 +5677,7 @@
         <xsl:variable name="technique">
           <xsl:choose>
             <xsl:when test="matches(substring(., 35, 1), '[aclnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 35, 1)"/>
+              <xsl:value-of select="replace(substring(., 35, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5651,7 +5696,7 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <xsl:when test="matches(substring(., 24, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 24, 1)"/>
+              <xsl:value-of select="replace(substring(., 24, 1), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <xsl:otherwise>
               <xsl:text>|</xsl:text>
@@ -5679,8 +5724,8 @@
     <xsl:choose>
       <xsl:when test="string-length($thisValue) &gt; 3">
         <subfield code="{$thisSubfield}">
-          <!-- Fix common incorrect value for Japanese -->
-          <xsl:value-of select="replace(substring($thisValue, 1, 3), 'jap', 'jpn')"/>
+          <!-- Fix common incorrect value for English and Japanese -->
+          <xsl:value-of select="replace(replace(replace(substring($thisValue, 1, 3), 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng')"/>
         </subfield>
         <xsl:variable name="remainder">
           <xsl:value-of select="substring($thisValue, 4)"/>
@@ -5693,7 +5738,8 @@
       </xsl:when>
       <xsl:otherwise>
         <subfield code="{$thisSubfield}">
-          <xsl:value-of select="replace($thisValue, 'jap', 'jpn')"/>
+          <!-- Fix common errors -->
+          <xsl:value-of select="replace(replace(replace(replace($thisValue, 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng'), 'rur', 'rus')"/>
         </subfield>
       </xsl:otherwise>
     </xsl:choose>
@@ -5703,16 +5749,21 @@
   <!-- MAIN OUTPUT TEMPLATE                                                    -->
   <!-- ======================================================================= -->
 
+  <!-- ======================================================================= -->
+  <!-- MATCH TEMPLATES (phase 1)                                               -->
+  <!-- ======================================================================= -->
+
   <xsl:template match="/">
     <xsl:variable name="phase1">
       <xsl:apply-templates mode="phase1"/>
     </xsl:variable>
-    <xsl:apply-templates select="$phase1" mode="phase2"/>
+    <xsl:variable name="phase2">
+      <xsl:apply-templates select="$phase1" mode="phase2"/>
+    </xsl:variable>
+    <xsl:apply-templates select="$phase2" mode="phase3"/>
   </xsl:template>
 
-  <!-- ======================================================================= -->
-  <!-- MATCH TEMPLATES (phase 1)                                               -->
-  <!-- ======================================================================= -->
+  <!-- Record -->
 
   <!-- Leader -->
   <xsl:template match="*:leader" mode="phase1">
@@ -5732,6 +5783,27 @@
       <xsl:choose>
         <!-- Replace invalid code -->
         <xsl:when test="not(matches(substring(., 7, 1), '[acdefgijkmoprt]', 'i'))">|</xsl:when>
+        <!-- Replace inaccurate value -->
+        <xsl:when test="
+            (../*:datafield[@tag = '099']/*:subfield[@code = 'a'][matches(., '^(MSS |RG)', 'i')] or
+            ../*:datafield[@tag = '999']/*:subfield[@code = 'a'][matches(., '^(MSS |RG)', 'i')])">
+          <xsl:choose>
+            <xsl:when test="matches(substring(., 7, 1), '[^pt]', 'i')">
+              <xsl:value-of select="substring(., 7, 1)"/>
+            </xsl:when>
+            <xsl:when test="number(../*:datafield[@tag = '300'][1]/*:subfield[@code = 'a'][1]) = 1">
+              <xsl:text>t</xsl:text>
+            </xsl:when>
+            <xsl:when
+              test="number(../*:datafield[@tag = '300'][1]/*:subfield[@code = 'a'][1]) &gt; 1">
+              <xsl:text>p</xsl:text>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:value-of select="lower-case(substring(., 7, 1))"/>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:when>
+        <!-- Keep current value -->
         <xsl:otherwise>
           <xsl:value-of select="lower-case(substring(., 7, 1))"/>
         </xsl:otherwise>
@@ -5739,8 +5811,37 @@
     </xsl:variable>
     <xsl:variable name="bibLevel">
       <xsl:choose>
+        <!-- Replace inaccurate value -->
+        <xsl:when test="
+            (../*:datafield[@tag = '099']/*:subfield[@code = 'a'][matches(., '^(MSS |RG)', 'i')] or
+            ../*:datafield[@tag = '999']/*:subfield[@code = 'a'][matches(., '^(MSS |RG)', 'i')])">
+          <xsl:choose>
+            <!-- MSS call number not collection or monograph -->
+            <xsl:when test="matches(substring(., 8, 1), '[^cm]', 'i')">
+              <!-- Keep the current value -->
+              <xsl:value-of select="substring(., 8, 1)"/>
+            </xsl:when>
+            <!-- Datafield 300/$a indicates there's a single item -->
+            <xsl:when test="
+                number(../*:datafield[@tag = '300'][1]/*:subfield[@code = 'a'][1]) = 1 or
+                number(substring-before(replace(../*:datafield[@tag = '300'][1]/*:subfield[@code = 'a'][1], '^\D*(\d)', '$1'), ' ')) = 1">
+              <xsl:text>m</xsl:text>
+            </xsl:when>
+            <!-- Datafield 300/$a indicates there's more than 1 item -->
+            <xsl:when test="
+                number(../*:datafield[@tag = '300'][1]/*:subfield[@code = 'a'][1]) &gt; 1 or
+                number(substring-before(replace(../*:datafield[@tag = '300'][1]/*:subfield[@code = 'a'][1], '^\D*(\d)', '$1'), ' ')) &gt; 1">
+              <xsl:text>c</xsl:text>
+            </xsl:when>
+            <!-- Keep the current value -->
+            <xsl:otherwise>
+              <xsl:value-of select="lower-case(substring(., 8, 1))"/>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:when>
         <!-- Replace invalid code -->
         <xsl:when test="not(matches(substring(., 8, 1), '[abcdims]', 'i'))">|</xsl:when>
+        <!-- Keep current value -->
         <xsl:otherwise>
           <xsl:value-of select="lower-case(substring(., 8, 1))"/>
         </xsl:otherwise>
@@ -5748,10 +5849,22 @@
     </xsl:variable>
     <xsl:variable name="controlType">
       <xsl:choose>
-        <!-- Replace invalid code -->
-        <xsl:when test="not(matches(substring(., 9, 1), '[\sa]', 'i'))">
+        <!-- Set to 'a' (archival) when 040/$a = 'appm' or 'dacs' -->
+        <xsl:when
+          test="../*:datafield[@tag = '040']/*:subfield[@code = 'e'][matches(., '(appm|dacs)', 'i')]">
+          <xsl:text>a</xsl:text>
+        </xsl:when>
+        <!-- Set to ' ' when 040/$a = 'aacr' or 'rda' -->
+        <xsl:when
+          test="../*:datafield[@tag = '040']/*:subfield[@code = 'e'][matches(., '(aacr|rda)', 'i')]">
           <xsl:text>&#32;</xsl:text>
         </xsl:when>
+        <!-- Set to 'a' (archival) when 099/$a or 999/$a matches '^MSS ' -->
+        <xsl:when
+          test="../*:datafield[@tag = '099' or @tag = '999']/*:subfield[@code = 'a'][matches(., '^MSS ', 'i')]">
+          <xsl:text>a</xsl:text>
+        </xsl:when>
+        <!-- Keep current value -->
         <xsl:otherwise>
           <xsl:value-of select="lower-case(substring(., 9, 1))"/>
         </xsl:otherwise>
@@ -5810,6 +5923,13 @@
     </leader>
   </xsl:template>
 
+  <!-- 005 -->
+  <xsl:template match="*:controlfield[@tag = '005'][matches(substring(., 1, 1), ' ')]" mode="phase1">
+    <controlfield tag="005">
+      <xsl:value-of select="substring(., 2)"/>
+    </controlfield>
+  </xsl:template>
+
   <!-- 006 -->
   <xsl:template match="*:controlfield[@tag = '006']" mode="phase1">
     <xsl:choose>
@@ -5823,7 +5943,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 2, 4), '\p{Zs}{4}|\|{4}|[a-mop]{4}|[a-mop]{3}\p{Zs}|[a-mop]{2}\p{Zs}{2}|[a-mop]\p{Zs}{3}')">
-              <xsl:value-of select="substring(., 2, 4)"/>
+              <xsl:value-of select="replace(substring(., 2, 4), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Keep existing codes, fill remaining positions with spaces -->
             <xsl:when test="matches(substring(., 2, 4), '[a-mop]')">
@@ -5841,8 +5961,8 @@
         <xsl:variable name="audience">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5853,8 +5973,8 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5867,7 +5987,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 8, 4), '[a-gij-wyz256]{4}|\|{4}|\p{Zs}{4}|[a-gij-wyz256]{3}(\p{Zs}|\|)|[a-gij-wyz256]{2}(\p{Zs}{2}|\|{2})|[a-gij-wyz256](\p{Zs}{3}|\|{3})')">
-              <xsl:value-of select="substring(., 8, 4)"/>
+              <xsl:value-of select="replace(substring(., 8, 4), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Keep existing codes, fill remaining positions with spaces -->
             <xsl:when test="matches(substring(., 8, 4), '[a-gij-wyz256]')">
@@ -5885,8 +6005,8 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5897,8 +6017,8 @@
         <xsl:variable name="confPub">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[01\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5909,8 +6029,8 @@
         <xsl:variable name="festschrift">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 14, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 14, 1)"/>
+            <xsl:when test="matches(substring(., 14, 1), '[01\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 14, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5921,8 +6041,8 @@
         <xsl:variable name="index">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 15, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 15, 1)"/>
+            <xsl:when test="matches(substring(., 15, 1), '[01\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 15, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5937,8 +6057,8 @@
         <xsl:variable name="litForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 17, 1), '[01defhijmpsu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 17, 1)"/>
+            <xsl:when test="matches(substring(., 17, 1), '[01defhijmpsu\|]', 'i')">
+              <xsl:value-of select="lower-case(substring(., 17, 1))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5949,8 +6069,8 @@
         <xsl:variable name="biography">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 18, 1), '[\p{Zs}a-d\|]')">
-              <xsl:value-of select="substring(., 18, 1)"/>
+            <xsl:when test="matches(substring(., 18, 1), '[\p{Zs}a-d\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 18, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5975,8 +6095,8 @@
         <xsl:variable name="audience">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -5987,8 +6107,8 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}oq\|]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}oq\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6003,8 +6123,8 @@
         <xsl:variable name="fileType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 10, 1), '[a-jmuz\|]')">
-              <xsl:value-of select="substring(., 10, 1)"/>
+            <xsl:when test="matches(substring(., 10, 1), '[a-jmuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 10, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6019,8 +6139,8 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6046,13 +6166,13 @@
           <xsl:choose>
             <!-- Code is valid -->
             <xsl:when
-              test="matches(substring(., 2, 4), '[a-gijkmz]{4}|\|{4}|\p{Zs}{4}|[a-gijkmz]{3}\p{Zs}|[a-gijkmz]{2}\p{Zs}{2}|[a-gijkmz]\p{Zs}{3}')">
-              <xsl:value-of select="substring(., 2, 4)"/>
+              test="matches(substring(., 2, 4), '[a-gijkmz]{4}|\|{4}|\p{Zs}{4}|[a-gijkmz]{3}\p{Zs}|[a-gijkmz]{2}\p{Zs}{2}|[a-gijkmz]\p{Zs}{3}', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 4), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Keep existing codes, fill remaining positions with spaces -->
-            <xsl:when test="matches(substring(., 2, 4), '[a-gijkmz]')">
+            <xsl:when test="matches(substring(., 2, 4), '[a-gijkmz]', 'i')">
               <xsl:variable name="codes">
-                <xsl:value-of select="replace(substring(., 2, 4), '[^a-gijkmz]', '')"/>
+                <xsl:value-of select="lower-case(replace(substring(., 2, 4), '[^a-gijkmz]', ''))"/>
               </xsl:variable>
               <xsl:value-of select="substring(concat($codes, '&#32;&#32;&#32;&#32;'), 1, 4)"/>
             </xsl:when>
@@ -6067,7 +6187,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 6, 2), '(\p{Zs}\p{Zs}|aa|ab|ac|ad|ae|af|ag|am|an|ap|au|az|ba|bb|bc|bd|be|bf|bg|bh|bi|bj|bk|bl|bo|br|bs|bu|bz|ca|cb|cc|ce|cp|cu|cz|da|db|dc|dd|de|df|dg|dh|dl|zz|\|\|)')">
-              <xsl:value-of select="substring(., 6, 2)"/>
+              <xsl:value-of select="replace(substring(., 6, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6082,8 +6202,8 @@
         <xsl:variable name="cartographicType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 9, 1), '[a-guz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 9, 1)"/>
+            <xsl:when test="matches(substring(., 9, 1), '[a-guz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 9, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6098,8 +6218,8 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6110,8 +6230,8 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[\p{Zs}a-dfoqrs\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6126,8 +6246,8 @@
         <xsl:variable name="index">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 15, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 15, 1)"/>
+            <xsl:when test="matches(substring(., 15, 1), '[01\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 15, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6144,7 +6264,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 17, 2), '[ejklnoprz]{2}|\|{2}|\p{Zs}{2}|[ejklnoprz]{1}\p{Zs}')">
-              <xsl:value-of select="substring(., 17, 2)"/>
+              <xsl:value-of select="replace(substring(., 17, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6167,7 +6287,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 2, 2), '(an|bd|bg|bl|bt|ca|cb|cc|cg|ch|cl|cn|co|cp|cr|cs|ct|cy|cz|df|dv|fg|fl|fm|ft|gm|hy|jz|mc|md|mi|mo|mp|mr|ms|mu|mz|nc|nn|op|or|ov|pg|pm|po|pp|pr|ps|pt|pv|rc|rd|rg|ri|rp|rq|sd|sg|sn|sp|st|su|sy|tc|tl|ts|uu|vi|vr|wz|za|zz|\|\||\p{Zs}\p{Zs})')">
-              <xsl:value-of select="substring(., 2, 2)"/>
+              <xsl:value-of select="replace(substring(., 2, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6178,8 +6298,8 @@
         <xsl:variable name="musicFormat">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[a-eg-npuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[a-eg-npuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6190,8 +6310,8 @@
         <xsl:variable name="musicParts">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[\p{Zs}defnu\|]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[\p{Zs}defnu\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6202,8 +6322,8 @@
         <xsl:variable name="audience">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6214,8 +6334,8 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6228,7 +6348,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 8, 6), '[a-ikrsz]{6}|[\p{Zs}\|]{6}|[a-ikrsz]{5}[\p{Zs}\|]|[a-ikrsz]{4}[\p{Zs}\|]{2}|[a-ikrsz]{3}[\p{Zs}\|]{3}|[a-ikrsz]{2}[\p{Zs}\|]{4}|[a-ikrsz][\p{Zs}\|]{5}')">
-              <xsl:value-of select="substring(., 8, 6)"/>
+              <xsl:value-of select="replace(substring(., 8, 6), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Keep existing codes, fill remaining positions with spaces -->
             <xsl:when test="matches(substring(., 8, 6), '[a-ikrsz]')">
@@ -6249,7 +6369,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 14, 2), '[a-prstz]{2}|\|{2}|\p{Zs}{2}|[a-prstz]\p{Zs}')">
-              <xsl:value-of select="substring(., 14, 2)"/>
+              <xsl:value-of select="replace(substring(., 14, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6264,8 +6384,8 @@
         <xsl:variable name="transpoArrangement">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 17, 1), '[\p{Zs}abcnu\|]')">
-              <xsl:value-of select="substring(., 17, 1)"/>
+            <xsl:when test="matches(substring(., 17, 1), '[\p{Zs}abcnu\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 17, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6290,8 +6410,8 @@
         <xsl:variable name="frequency">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[\p{Zs}a-kmqstuwz\|]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[\p{Zs}a-kmqstuwz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6302,8 +6422,8 @@
         <xsl:variable name="regularity">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 3, 1), '[nrux\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 3, 1)"/>
+            <xsl:when test="matches(substring(., 3, 1), '[nrux\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 3, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6318,8 +6438,8 @@
         <xsl:variable name="resourceType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[\p{Zs}dlmnpw\|]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[\p{Zs}dlmnpw\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6330,8 +6450,8 @@
         <xsl:variable name="originalForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-foqs\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-foqs\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6342,8 +6462,8 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6354,8 +6474,8 @@
         <xsl:variable name="workNature">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 8, 1), '[\p{Zs}a-ik-wyz56\|]')">
-              <xsl:value-of select="substring(., 8, 1)"/>
+            <xsl:when test="matches(substring(., 8, 1), '[\p{Zs}a-ik-wyz56\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 8, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6368,7 +6488,7 @@
             <!-- Codes are valid -->
             <xsl:when
               test="matches(substring(., 9, 3), '[a-ik-wyz56]{3}|\|{3}|\p{Zs}{3}|[a-ik-wyz56]{2}\p{Zs}|[a-ik-wyz56]\p{Zs}{2}')">
-              <xsl:value-of select="substring(., 9, 3)"/>
+              <xsl:value-of select="replace(substring(., 9, 3), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Keep existing codes, fill remaining positions with spaces -->
             <xsl:when test="matches(substring(., 9, 3), '[a-ik-wyz56]')">
@@ -6386,8 +6506,8 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6398,8 +6518,8 @@
         <xsl:variable name="confPub">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[01\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[01\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6414,8 +6534,8 @@
         <xsl:variable name="alphaScript">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 17, 1), '[\p{Zs}a-luz\|]')">
-              <xsl:value-of select="substring(., 17, 1)"/>
+            <xsl:when test="matches(substring(., 17, 1), '[\p{Zs}a-luz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 17, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6426,8 +6546,8 @@
         <xsl:variable name="entryConvention">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 18, 1), '[012\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 18, 1)"/>
+            <xsl:when test="matches(substring(., 18, 1), '[012\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 18, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6465,8 +6585,8 @@
         <xsl:variable name="audience">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-gj\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6481,8 +6601,8 @@
         <xsl:variable name="govPub">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[\p{Zs}acfilmosuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6493,8 +6613,8 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[\p{Zs}a-dfoqrs\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6509,8 +6629,8 @@
         <xsl:variable name="materialType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 17, 1), '[a-dfgik-tvwz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 17, 1)"/>
+            <xsl:when test="matches(substring(., 17, 1), '[a-dfgik-tvwz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 17, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6521,8 +6641,8 @@
         <xsl:variable name="technique">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 18, 1), '[aclnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 18, 1)"/>
+            <xsl:when test="matches(substring(., 18, 1), '[aclnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 18, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6547,8 +6667,8 @@
         <xsl:variable name="itemForm">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-dfoqrs\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6571,7 +6691,7 @@
           <xsl:apply-templates select="@*"/>
           <xsl:value-of select="."/>
         </controlfield>
-        <xsl:variable name="recordIdentifier">
+        <!--<xsl:variable name="recordIdentifier">
           <xsl:choose>
             <xsl:when test="../*:controlfield[@tag = '001']">
               <xsl:value-of select="../*:controlfield[@tag = '001']"/>
@@ -6582,12 +6702,17 @@
           </xsl:choose>
         </xsl:variable>
         <xsl:message>record <xsl:value-of select="$recordIdentifier"/>: Unknown value '<xsl:value-of
-          select="substring(., 1, 1)"/>' in 006/1</xsl:message>
+            select="substring(., 1, 1)"/>' in 006/00</xsl:message>-->
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
 
   <!-- 007 -->
+  <!-- Delete defective 007 -->
+  <xsl:template match="*:controlfield[@tag = '007'][normalize-space(.) = 'ta']" mode="phase1"
+    priority="2"/>
+
+  <!-- Process other 007s -->
   <xsl:template match="*:controlfield[@tag = '007']" mode="phase1">
     <xsl:choose>
       <!-- Map -->
@@ -6598,8 +6723,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[dgjkqrsuyz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[dgjkqrsuyz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6614,8 +6739,8 @@
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[ac\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[ac\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6626,8 +6751,8 @@
         <xsl:variable name="physMedium">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[a-gijlnp-z\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[a-gijlnp-z\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6638,8 +6763,8 @@
         <xsl:variable name="reproType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[fnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[fnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6650,8 +6775,8 @@
         <xsl:variable name="prodDetails">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[a-duz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[a-duz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6662,8 +6787,8 @@
         <xsl:variable name="posNeg">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 8, 1), '[abmn\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 8, 1)"/>
+            <xsl:when test="matches(substring(., 8, 1), '[abmn\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 8, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6684,8 +6809,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[a-fhjkmoruz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[a-fhjkmoruz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6695,22 +6820,13 @@
         </xsl:variable>
         <!-- Undefined = 'no attempt to code' -->
         <xsl:variable name="undef3">
-          <xsl:choose>
-            <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 3, 1), '[\p{Zs}\|]')">
-              <xsl:value-of select="substring(., 3, 1)"/>
-            </xsl:when>
-            <!-- Replace w/ 'no attempt to code' -->
-            <xsl:otherwise>
-              <xsl:text>|</xsl:text>
-            </xsl:otherwise>
-          </xsl:choose>
+          <xsl:text>|</xsl:text>
         </xsl:variable>
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[abcgmnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[abcgmnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6721,8 +6837,8 @@
         <xsl:variable name="dimensions">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[aegijnouvz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[aegijnouvz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6733,8 +6849,8 @@
         <xsl:variable name="sound">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}au\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}au\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6746,7 +6862,7 @@
           <xsl:choose>
             <!-- Codes are valid -->
             <xsl:when test="matches(substring(., 7, 3), '\d{3}|mmm|nnn|---|\|\|\||[\p{Zs}]{3}')">
-              <xsl:value-of select="substring(., 7, 3)"/>
+              <xsl:value-of select="replace(substring(., 7, 3), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6757,8 +6873,8 @@
         <xsl:variable name="fileFormat">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 10, 1), '[amu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 10, 1)"/>
+            <xsl:when test="matches(substring(., 10, 1), '[amu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 10, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6769,8 +6885,8 @@
         <xsl:variable name="qualityTarget">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 11, 1), '[anpu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 11, 1)"/>
+            <xsl:when test="matches(substring(., 11, 1), '[anpu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 11, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6781,8 +6897,8 @@
         <xsl:variable name="anteSource">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[a-dmnu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[a-dmnu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6793,8 +6909,8 @@
         <xsl:variable name="compression">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[abdmu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[abdmu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6805,8 +6921,8 @@
         <xsl:variable name="reformatQuality">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 14, 1), '[anpru\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 14, 1)"/>
+            <xsl:when test="matches(substring(., 14, 1), '[anpru\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 14, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6827,8 +6943,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[a-ceuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[a-ceuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6843,8 +6959,8 @@
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[ac\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[ac\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6855,8 +6971,8 @@
         <xsl:variable name="physMedium">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[a-gijlnpu-z\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[a-gijlnpu-z\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6867,8 +6983,8 @@
         <xsl:variable name="reproType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[fnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[fnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6889,8 +7005,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[a-duz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[a-duz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6906,7 +7022,7 @@
           <xsl:choose>
             <!-- Codes are valid -->
             <xsl:when test="matches(substring(., 4, 2), '[a-emnuz][a-emnuz\p{Zs}]|\|{2}')">
-              <xsl:value-of select="substring(., 4, 2)"/>
+              <xsl:value-of select="replace(substring(., 4, 2), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Keep existing codes, fill remaining positions with spaces -->
             <xsl:when test="matches(substring(., 4, 2), '[a-emnuz]')">
@@ -6924,8 +7040,8 @@
         <xsl:variable name="contractionLevel">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[abmnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[abmnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6937,7 +7053,7 @@
           <xsl:choose>
             <!-- Codes are valid -->
             <xsl:when test="matches(substring(., 7, 3), '[a-lnuz][a-lnuz\p{Zs}]{2}|\|{3}')">
-              <xsl:value-of select="substring(., 7, 3)"/>
+              <xsl:value-of select="replace(substring(., 7, 3), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Keep existing codes, fill remaining positions with spaces -->
             <xsl:when test="matches(substring(., 7, 3), '[a-lnuz]')">
@@ -6955,8 +7071,8 @@
         <xsl:variable name="specialChar">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 10, 1), '[abnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 10, 1)"/>
+            <xsl:when test="matches(substring(., 10, 1), '[abnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 10, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6977,8 +7093,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[cdfos-uz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[cdfos-uz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -6993,8 +7109,8 @@
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[a-chmnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[a-chmnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7005,8 +7121,8 @@
         <xsl:variable name="emulsionBase">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[dejkmou\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[dejkmou\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7017,8 +7133,8 @@
         <xsl:variable name="soundOnMedium">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[abu\p{Zs}\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[abu\p{Zs}\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7029,8 +7145,8 @@
         <xsl:variable name="mediumOfSound">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[a-iuz\p{Zs}\|]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[a-iuz\p{Zs}\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7041,8 +7157,8 @@
         <xsl:variable name="dimensions">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 8, 1), '[a-gjks-z\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 8, 1)"/>
+            <xsl:when test="matches(substring(., 8, 1), '[a-gjks-z\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 8, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7053,8 +7169,8 @@
         <xsl:variable name="support">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 9, 1), '[c-ehjkmuz\p{Zs}\|]')">
-              <xsl:value-of select="substring(., 9, 1)"/>
+            <xsl:when test="matches(substring(., 9, 1), '[c-ehjkmuz\p{Zs}\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 9, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7075,8 +7191,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[a-hjuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[a-hjuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7091,8 +7207,8 @@
         <xsl:variable name="posNeg">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[abmu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[abmu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7103,8 +7219,8 @@
         <xsl:variable name="dimensions">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[adfghlmopuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[adfghlmopuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7115,8 +7231,8 @@
         <xsl:variable name="reductionRange">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[a-euv\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[a-euv\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7127,8 +7243,9 @@
         <xsl:variable name="reductionRatio">
           <xsl:choose>
             <!-- Codes are valid -->
-            <xsl:when test="matches(substring(., 7, 3), '\p{Zs}{3}|\d{3}|\d{2}-|\d--|-{3}')">
-              <xsl:value-of select="substring(., 7, 3)"/>
+            <!-- Treat '\-\-\-' as an invalid code, i.e. replace with '|||' -->
+            <xsl:when test="matches(substring(., 7, 3), '\p{Zs}{3}|\d{3}|\d{2}-|\d--')">
+              <xsl:value-of select="replace(substring(., 7, 3), '\p{Zs}', '&#32;')"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7139,8 +7256,8 @@
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 10, 1), '[bcmuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 10, 1)"/>
+            <xsl:when test="matches(substring(., 10, 1), '[bcmuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 10, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7151,8 +7268,8 @@
         <xsl:variable name="emulsion">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 11, 1), '[abcmnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 11, 1)"/>
+            <xsl:when test="matches(substring(., 11, 1), '[abcmnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 11, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7163,8 +7280,8 @@
         <xsl:variable name="generation">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[abcmu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[abcmu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7175,8 +7292,8 @@
         <xsl:variable name="filmBase">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[acdimnprtuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[acdimnprtuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7197,8 +7314,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[ac-ln-suvz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[ac-ln-suvz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7213,8 +7330,8 @@
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[abchm\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[abchm\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7225,8 +7342,8 @@
         <xsl:variable name="supportPrimary">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[a-il-wz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[a-il-wz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7237,8 +7354,8 @@
         <xsl:variable name="supportSecondary">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-il-wz\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}a-il-wz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7259,8 +7376,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[cforuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[cforuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7275,8 +7392,8 @@
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[bchmnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[bchmnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7287,8 +7404,8 @@
         <xsl:variable name="presentationFormat">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[a-fuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[a-fuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7299,8 +7416,8 @@
         <xsl:variable name="soundOnMedium">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}abu\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}abu\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7311,8 +7428,8 @@
         <xsl:variable name="mediumOfSound">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-iuz]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-iuz]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7323,8 +7440,8 @@
         <xsl:variable name="dimensions">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 8, 1), '[a-guz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 8, 1)"/>
+            <xsl:when test="matches(substring(., 8, 1), '[a-guz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 8, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7335,8 +7452,8 @@
         <xsl:variable name="playbackChannels">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 9, 1), '[kmnqsuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 9, 1)"/>
+            <xsl:when test="matches(substring(., 9, 1), '[kmnqsuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 9, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7347,8 +7464,8 @@
         <xsl:variable name="productionElements">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 10, 1), '[a-gnz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 10, 1)"/>
+            <xsl:when test="matches(substring(., 10, 1), '[a-gnz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 10, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7359,8 +7476,8 @@
         <xsl:variable name="posNeg">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 11, 1), '[abnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 11, 1)"/>
+            <xsl:when test="matches(substring(., 11, 1), '[abnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 11, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7371,8 +7488,8 @@
         <xsl:variable name="generation">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 12, 1), '[deoruz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 12, 1)"/>
+            <xsl:when test="matches(substring(., 12, 1), '[deoruz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 12, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7383,8 +7500,8 @@
         <xsl:variable name="filmBase">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[acdimnprtuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[acdimnprtuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7395,8 +7512,8 @@
         <xsl:variable name="refinedColor">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 14, 1), '[a-np-vz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 14, 1)"/>
+            <xsl:when test="matches(substring(., 14, 1), '[a-np-vz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 14, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7407,8 +7524,8 @@
         <xsl:variable name="colorStock">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 15, 1), '[a-dnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 15, 1)"/>
+            <xsl:when test="matches(substring(., 15, 1), '[a-dnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 15, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7419,8 +7536,8 @@
         <xsl:variable name="deterioration">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 16, 1), '[a-hklm\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 16, 1)"/>
+            <xsl:when test="matches(substring(., 16, 1), '[a-hklm\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 16, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7431,8 +7548,8 @@
         <xsl:variable name="completeness">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 17, 1), '[cinu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 17, 1)"/>
+            <xsl:when test="matches(substring(., 17, 1), '[cinu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 17, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7465,8 +7582,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[u\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[u\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7487,8 +7604,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[u\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[u\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7509,8 +7626,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[u\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[u\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7525,8 +7642,8 @@
         <xsl:variable name="sensorAlt">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[abcnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[abcnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7537,8 +7654,8 @@
         <xsl:variable name="sensorAtt">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[abcnu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[abcnu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7549,8 +7666,8 @@
         <xsl:variable name="cloudCover">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[0-9nu\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[0-9nu\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7561,8 +7678,8 @@
         <xsl:variable name="platformConstruction">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[a-inuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[a-inuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7573,8 +7690,8 @@
         <xsl:variable name="platformUse">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 8, 1), '[abcmnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 8, 1)"/>
+            <xsl:when test="matches(substring(., 8, 1), '[abcmnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 8, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7585,8 +7702,8 @@
         <xsl:variable name="sensorType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 9, 1), '[abuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 9, 1)"/>
+            <xsl:when test="matches(substring(., 9, 1), '[abuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 9, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7620,8 +7737,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[degiqstuwz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[degiqstuwz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7636,8 +7753,8 @@
         <xsl:variable name="speed">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[a-fhiklmopruz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[a-fhiklmopruz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7648,8 +7765,8 @@
         <xsl:variable name="channelConfig">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[mqsuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[mqsuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7660,8 +7777,8 @@
         <xsl:variable name="groovePitch">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[mnsuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[mnsuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7672,8 +7789,8 @@
         <xsl:variable name="dimensions">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[a-gjosnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[a-gjosnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7684,8 +7801,8 @@
         <xsl:variable name="tapeWidth">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 8, 1), '[l-puz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 8, 1)"/>
+            <xsl:when test="matches(substring(., 8, 1), '[l-puz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 8, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7696,8 +7813,8 @@
         <xsl:variable name="tapeConfig">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 9, 1), '[a-fnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 9, 1)"/>
+            <xsl:when test="matches(substring(., 9, 1), '[a-fnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 9, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7708,8 +7825,8 @@
         <xsl:variable name="discCylinderTapeType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 10, 1), '[abdimnrstuz\|]')">
-              <xsl:value-of select="substring(., 10, 1)"/>
+            <xsl:when test="matches(substring(., 10, 1), '[abdimnrstuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 10, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7720,8 +7837,8 @@
         <xsl:variable name="materialType">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 11, 1), '[abcgilmnprswuz\|]')">
-              <xsl:value-of select="substring(., 11, 1)"/>
+            <xsl:when test="matches(substring(., 11, 1), '[abcgilmnprswuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 11, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7744,8 +7861,8 @@
         <xsl:variable name="specialPlayback">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 13, 1), '[a-hnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 13, 1)"/>
+            <xsl:when test="matches(substring(., 13, 1), '[a-hnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 13, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7756,8 +7873,8 @@
         <xsl:variable name="captureStorage">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 14, 1), '[abdeuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 14, 1)"/>
+            <xsl:when test="matches(substring(., 14, 1), '[abdeuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 14, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7778,8 +7895,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[a-duz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[a-duz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7800,8 +7917,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[acdfnruz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[acdfnruz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7816,8 +7933,8 @@
         <xsl:variable name="color">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 4, 1), '[bcmnuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 4, 1)"/>
+            <xsl:when test="matches(substring(., 4, 1), '[bcmnuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 4, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7828,8 +7945,8 @@
         <xsl:variable name="format">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 5, 1), '[a-km-qsuvz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 5, 1)"/>
+            <xsl:when test="matches(substring(., 5, 1), '[a-km-qsuvz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 5, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7840,8 +7957,8 @@
         <xsl:variable name="soundOnMedium">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}abu\|]')">
-              <xsl:value-of select="substring(., 6, 1)"/>
+            <xsl:when test="matches(substring(., 6, 1), '[\p{Zs}abu\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 6, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7852,8 +7969,8 @@
         <xsl:variable name="mediumOfSound">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-iuz\|]')">
-              <xsl:value-of select="substring(., 7, 1)"/>
+            <xsl:when test="matches(substring(., 7, 1), '[\p{Zs}a-iuz\|]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 7, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7864,8 +7981,8 @@
         <xsl:variable name="dimensions">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 8, 1), '[amo-ruz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 8, 1)"/>
+            <xsl:when test="matches(substring(., 8, 1), '[amo-ruz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 8, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7876,8 +7993,8 @@
         <xsl:variable name="channelConfig">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 9, 1), '[kmnqsuz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 9, 1)"/>
+            <xsl:when test="matches(substring(., 9, 1), '[kmnqsuz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 9, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7898,8 +8015,8 @@
         <xsl:variable name="smd">
           <xsl:choose>
             <!-- Code is valid -->
-            <xsl:when test="matches(substring(., 2, 1), '[muz\|\p{Zs}]')">
-              <xsl:value-of select="substring(., 2, 1)"/>
+            <xsl:when test="matches(substring(., 2, 1), '[muz\|\p{Zs}]', 'i')">
+              <xsl:value-of select="lower-case(replace(substring(., 2, 1), '\p{Zs}', '&#32;'))"/>
             </xsl:when>
             <!-- Replace w/ 'no attempt to code' -->
             <xsl:otherwise>
@@ -7912,13 +8029,117 @@
           <xsl:value-of select="concat($materialCode, $smd)"/>
         </controlfield>
       </xsl:when>
+      <!-- Microform 007 erroneously contains subfields -->
+      <xsl:when test="matches(., '^\|ah\|')">
+        <xsl:variable name="materialCode">
+          <xsl:text>h</xsl:text>
+        </xsl:variable>
+        <xsl:variable name="smd">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|b'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|b'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="undef3">
+          <xsl:text>|</xsl:text>
+        </xsl:variable>
+        <xsl:variable name="posNeg">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|d'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|d'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="dimensions">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|e'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|e'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="reductionRatioRange">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|f'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|f'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="reductionRatio">
+          <xsl:text>|||</xsl:text>
+        </xsl:variable>
+        <xsl:variable name="color">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|g'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|g'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="emulsion">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|h'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|h'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="generation">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|i'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|i'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <xsl:variable name="filmBase">
+          <xsl:choose>
+            <xsl:when
+              test="normalize-space(lower-case(substring(substring-after(., '|j'), 1, 1))) != ''">
+              <xsl:value-of select="lower-case(substring(substring-after(., '|j'), 1, 1))"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:text>|</xsl:text>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <controlfield>
+          <xsl:apply-templates select="@*"/>
+          <xsl:value-of select="concat($materialCode, $smd, $undef3, $posNeg, $dimensions, $reductionRatioRange, $reductionRatio, $color, $emulsion, $generation, $filmBase)"/>
+        </controlfield>
+      </xsl:when>
       <!-- Unknown material; leave in place -->
       <xsl:otherwise>
         <controlfield>
           <xsl:apply-templates select="@*"/>
           <xsl:value-of select="."/>
         </controlfield>
-        <xsl:variable name="recordIdentifier">
+        <!--<xsl:variable name="recordIdentifier">
           <xsl:choose>
             <xsl:when test="../*:controlfield[@tag = '001']">
               <xsl:value-of select="../*:controlfield[@tag = '001']"/>
@@ -7929,7 +8150,7 @@
           </xsl:choose>
         </xsl:variable>
         <xsl:message>record <xsl:value-of select="$recordIdentifier"/>: Unknown value '<xsl:value-of
-          select="substring(., 1, 1)"/>' in 007/1</xsl:message>
+            select="substring(., 1, 1)"/>' in 007/00</xsl:message>-->
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -7950,6 +8171,11 @@
     </xsl:variable>
     <xsl:variable name="pubStatus">
       <xsl:choose>
+        <!-- Replace w/ 'unknown' -->
+        <xsl:when
+          test="matches(substring(., 8, 4), '[\p{Zs}u\\\|]{4}') and matches(substring(., 12, 4), '[\p{Zs}u\\\|]{4}')">
+          <xsl:text>n</xsl:text>
+        </xsl:when>
         <!-- Code is valid -->
         <xsl:when test="matches(substring(., 7, 1), '[bcdeikmnpqrstu\|]', 'i')">
           <xsl:value-of select="lower-case(substring(., 7, 1))"/>
@@ -7965,7 +8191,7 @@
         <!-- Codes are valid -->
         <xsl:when
           test="matches(substring(., 8, 4), '[0-9]{4}|[\p{Zs}u\\\|]{4}|[0-9\p{Zs}u\\\|]{4}', 'i')">
-          <xsl:value-of select="lower-case(substring(., 8, 4))"/>
+          <xsl:value-of select="replace(lower-case(substring(., 8, 4)), '\p{Zs}', '&#32;')"/>
         </xsl:when>
         <!-- Replace w/ 'no attempt to code' -->
         <xsl:otherwise>
@@ -7978,7 +8204,7 @@
         <!-- Codes are valid -->
         <xsl:when
           test="matches(substring(., 12, 4), '[0-9]{4}|[\p{Zs}u\\\|]{4}|[0-9\p{Zs}u\\\|]{4}', 'i')">
-          <xsl:value-of select="lower-case(substring(., 12, 4))"/>
+          <xsl:value-of select="replace(lower-case(substring(., 12, 4)), '\p{Zs}', '&#32;')"/>
         </xsl:when>
         <!-- Replace w/ 'no attempt to code' -->
         <xsl:otherwise>
@@ -7988,11 +8214,95 @@
     </xsl:variable>
     <xsl:variable name="pubPlace">
       <xsl:choose>
-        <!-- Codes are valid -->
+        <!-- Code is minimally valid -->
         <xsl:when test="matches(substring(., 16, 3), '[a-z]{2}[a-z\s]', 'i')">
-          <xsl:value-of select="lower-case(substring(., 16, 3))"/>
+          <xsl:variable name="thisValue">
+            <xsl:value-of select="lower-case(substring(., 16, 3))"/>
+          </xsl:variable>
+          <xsl:choose>
+            <!-- Fix obsolete codes -->
+            <xsl:when test="$thisValue = 'ac '">at </xsl:when>
+            <xsl:when test="$thisValue = 'ai '">am </xsl:when>
+            <xsl:when test="$thisValue = 'air'">ai </xsl:when>
+            <xsl:when test="$thisValue = 'ajr'">aj </xsl:when>
+            <xsl:when test="$thisValue = 'bwr'">bw </xsl:when>
+            <xsl:when test="$thisValue = 'cn '">xxc</xsl:when>
+            <xsl:when test="$thisValue = 'cp '">gb </xsl:when>
+            <xsl:when test="$thisValue = 'cs '">xo </xsl:when>
+            <xsl:when test="$thisValue = 'cz '">pn </xsl:when>
+            <xsl:when test="$thisValue = 'err'">er </xsl:when>
+            <xsl:when test="$thisValue = 'ge '">gw </xsl:when>
+            <xsl:when test="$thisValue = 'gn '">gb </xsl:when>
+            <xsl:when test="$thisValue = 'gsr'">gs </xsl:when>
+            <xsl:when test="$thisValue = 'hk '">cc </xsl:when>
+            <xsl:when test="$thisValue = 'iu '">is </xsl:when>
+            <xsl:when test="$thisValue = 'iw '">is </xsl:when>
+            <xsl:when test="$thisValue = 'jn '">no </xsl:when>
+            <xsl:when test="$thisValue = 'kgr'">kg </xsl:when>
+            <xsl:when test="$thisValue = 'kzr'">kz </xsl:when>
+            <xsl:when test="$thisValue = 'lir'">li </xsl:when>
+            <xsl:when test="$thisValue = 'ln '">gb </xsl:when>
+            <xsl:when test="$thisValue = 'lvr'">lv </xsl:when>
+            <xsl:when test="$thisValue = 'mh '">cc </xsl:when>
+            <xsl:when test="$thisValue = 'mvr'">mv </xsl:when>
+            <xsl:when test="$thisValue = 'na '">sn </xsl:when>
+            <xsl:when test="$thisValue = 'nm '">nw </xsl:when>
+            <xsl:when test="$thisValue = 'pt '">em </xsl:when>
+            <xsl:when test="$thisValue = 'rur'">ru </xsl:when>
+            <xsl:when test="$thisValue = 'ry '">ja </xsl:when>
+            <xsl:when test="$thisValue = 'sb '">no </xsl:when>
+            <xsl:when test="$thisValue = 'sk '">ii </xsl:when>
+            <xsl:when test="$thisValue = 'sv '">ho </xsl:when>
+            <xsl:when test="$thisValue = 'tar'">ta </xsl:when>
+            <xsl:when test="$thisValue = 'tkr'">tk </xsl:when>
+            <xsl:when test="$thisValue = 'tt '">pw </xsl:when>
+            <xsl:when test="$thisValue = 'ui '">stk</xsl:when>
+            <xsl:when test="$thisValue = 'uik'">stk</xsl:when>
+            <xsl:when test="$thisValue = 'uk '">xxk</xsl:when>
+            <xsl:when test="$thisValue = 'unr'">un </xsl:when>
+            <xsl:when test="$thisValue = 'ur '">ru </xsl:when>
+            <xsl:when test="$thisValue = 'us '">xxu</xsl:when>
+            <xsl:when test="$thisValue = 'uzr'">uz </xsl:when>
+            <xsl:when test="$thisValue = 'vn '">vm </xsl:when>
+            <xsl:when test="$thisValue = 'vs '">vm </xsl:when>
+            <xsl:when test="$thisValue = 'wb '">gw </xsl:when>
+            <xsl:when test="$thisValue = 'xi '">am </xsl:when>
+            <xsl:when test="$thisValue = 'xxr'">ru </xsl:when>
+            <xsl:when test="$thisValue = 'ys '">ye </xsl:when>
+            <xsl:when test="$thisValue = 'yu '">bn </xsl:when>
+            <xsl:otherwise>
+              <!-- Fix common errors -->
+              <xsl:value-of select="
+                  replace(replace(replace(
+                  replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+                  replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+                  $thisValue, 'mcu', 'miu'),
+                  'viu', 'vau'),
+                  'nku', 'nkc'),
+                  'cnu', 'ctu'),
+                  'iek', 'ie '),
+                  'iou', 'iau'),
+                  'unk', 'enk'),
+                  'neu', 'nbu'),
+                  'nyk', 'nyu'),
+                  'guc', 'quc'),
+                  'en ', 'enk'),
+                  'nyc', 'nyu'),
+                  'ny ', 'nyu'),
+                  'ar ', 'ag '),
+                  'tn ', 'tnu'),
+                  'bck', 'bcc'),
+                  'atk', 'at '),
+                  'cnc', 'onc'),
+                  'dc ', 'dcu'),
+                  'nj ', 'nju'),
+                  'ma ', 'mau'),
+                  'en ', 'enk'),
+                  'pru', 'pr ')"/>
+            </xsl:otherwise>
+          </xsl:choose>
         </xsl:when>
-        <!-- Replace w/ 'unknown' -->
+        <!-- Replace w/ 'unknown' value -->
         <xsl:otherwise>
           <xsl:text>xx&#32;</xsl:text>
         </xsl:otherwise>
@@ -8002,10 +8312,25 @@
       <xsl:choose>
         <!-- Code is minimally valid -->
         <xsl:when test="matches(substring(., 36, 3), '[a-z]{3}|\p{Zs}{3}', 'i')">
-          <!-- Fix common errors -->
-          <xsl:value-of select="replace(lower-case(substring(., 36, 3)), 'jap', 'jpn')"/>
+          <xsl:variable name="thisValue">
+            <xsl:value-of select="lower-case(substring(., 36, 3))"/>
+          </xsl:variable>
+          <xsl:choose>
+            <!-- Fix obsolete codes -->
+            <xsl:when test="$thisValue = 'scr'">hrv</xsl:when>
+            <xsl:when test="$thisValue = 'mol'">rum</xsl:when>
+            <xsl:when test="$thisValue = 'scc'">srp</xsl:when>
+            <xsl:otherwise>
+              <!-- Fix common errors -->
+              <xsl:value-of select="
+                  replace(replace(replace(replace(replace(replace(replace(replace(
+                  replace(replace($thisValue, 'jap', 'jpn'), 'ing', 'eng'),
+                  'end', 'eng'), '\p{Zs}', '&#32;'), 'rur', 'rus'), 'enh', 'eng'),
+                  'ser', 'srp'), 'cro', 'hrv'), 'scs', 'srp'), 'fle', 'dut')"/>
+            </xsl:otherwise>
+          </xsl:choose>
         </xsl:when>
-        <!-- Replace w/ blanks -->
+        <!-- Replace w/ 'unknown' value -->
         <xsl:otherwise>
           <xsl:text>&#32;&#32;&#32;</xsl:text>
         </xsl:otherwise>
@@ -8015,7 +8340,7 @@
       <xsl:choose>
         <!-- Code is valid -->
         <xsl:when test="matches(substring(., 39, 1), '[\p{Zs}\\\|dorsx]', 'i')">
-          <xsl:value-of select="lower-case(substring(., 39, 1))"/>
+          <xsl:value-of select="replace(lower-case(substring(., 39, 1)), '\p{Zs}', '&#32;')"/>
         </xsl:when>
         <!-- Replace w/ 'no attempt to code' -->
         <xsl:otherwise>
@@ -8027,7 +8352,7 @@
       <xsl:choose>
         <!-- Code is valid -->
         <xsl:when test="matches(substring(., 40, 1), '[\p{Zs}\\\|cdu]', 'i')">
-          <xsl:value-of select="lower-case(substring(., 40, 1))"/>
+          <xsl:value-of select="replace(lower-case(substring(., 40, 1)), '\p{Zs}', '&#32;')"/>
         </xsl:when>
         <!-- Replace w/ 'no attempt to code' -->
         <xsl:otherwise>
@@ -8043,16 +8368,85 @@
     </controlfield>
   </xsl:template>
 
-  <!-- Remove the following datafields -->
+  <!-- Delete datafields that have no subfields or no content in their subfields -->
+  <xsl:template match="
+      *:datafield[not(*:subfield)] |
+      *:datafield[normalize-space(.) eq '']" mode="phase1" priority="4"/>
+
+  <!-- In 035 compress non-repeatable subfields and replace $9 with $z -->
+  <!-- Because this template has a higher priority than the ones below, 
+    in phase 1 illegal subfields are retained. However, if there's no
+    subfield $a, then the 035 will be deleted in phase 3. -->
+  <xsl:template match="*:datafield[@tag = '035']" mode="phase1" priority="2">
+    <!-- Ignore/delete 035 that has no content -->
+    <xsl:if test="*:subfield and normalize-space(.) != ''">
+      <!-- Compress subfields -->
+      <xsl:variable name="pass1">
+        <xsl:variable name="thisTag">
+          <xsl:value-of select="@tag"/>
+        </xsl:variable>
+        <xsl:call-template name="compressSubfields">
+          <xsl:with-param name="tag">
+            <xsl:value-of select="$thisTag"/>
+          </xsl:with-param>
+          <xsl:with-param name="subfieldList">
+            <xsl:for-each select="*:subfield">
+              <xsl:copy>
+                <xsl:copy-of select="@*"/>
+                <xsl:value-of select="normalize-space(.)"/>
+              </xsl:copy>
+            </xsl:for-each>
+          </xsl:with-param>
+        </xsl:call-template>
+      </xsl:variable>
+      <datafield>
+        <xsl:apply-templates select="@*"/>
+        <!-- Replace subfield 9 with subfield z -->
+        <xsl:for-each select="$pass1//*:subfield">
+          <subfield>
+          <xsl:attribute name="code">
+            <xsl:choose>
+              <xsl:when test="@code = '9'">
+                <xsl:text>z</xsl:text>
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:value-of select="@code"/>
+              </xsl:otherwise>
+            </xsl:choose>
+          </xsl:attribute>
+          <xsl:value-of select="."/>
+        </subfield>
+        </xsl:for-each>
+      </datafield>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Delete the following datafields -->
+  <xsl:template match="*:datafield[@tag = '039']" priority="2" mode="phase1"/>
+  <xsl:template match="*:datafield[@tag = '049']" priority="2" mode="phase1"/>
   <xsl:template match="*:datafield[@tag = '066']" priority="2" mode="phase1"/>
   <xsl:template match="*:datafield[@tag = '092']" priority="2" mode="phase1"/>
 
-  <!-- Delete datafields that have no subfields or no content in their subfields -->
-  <xsl:template match="*:datafield[not(*:subfield)] | *:datafield[normalize-space(.) eq '']"
-    priority="2" mode="phase1"/>
+  <!-- Delete 050 with "provisional" (?) call number -->
+  <xsl:template match="
+      *:datafield[@tag = '050' and matches(normalize-space(.), '^[A-Z]{3}$')]" mode="phase1"
+    priority="2"/>
+
+  <!-- Delete 090 that 
+    1. doesn't have $a and doesn't have $b
+    2. matches '^[A-Z]X\d+='
+  -->
+  <xsl:template match="
+      *:datafield[@tag = '090' and
+      not(*:subfield[@code = 'a']) and not(*:subfield[@code = 'b'])] |
+      *:datafield[@tag = '090'][matches(., '^\**[A-Z]X\d+=')]" mode="phase1" priority="2"/>
+
+  <!-- Delete 090 subfields other than '[abef]' -->
+  <xsl:template match="*:datafield[@tag = '090']/*:subfield[not(matches(@code, '[abef]'))]"
+    mode="phase1" priority="2"/>
 
   <!-- Join illegal subfields to preceding sibling in datafield 880 -->
-  <xsl:template match="*:datafield[@tag = '880']" priority="2" mode="phase1">
+  <xsl:template match="*:datafield[@tag = '880']" mode="phase1" priority="2">
     <datafield>
       <xsl:apply-templates select="@*"/>
       <xsl:variable name="sourceTag">
@@ -8081,7 +8475,8 @@
       </xsl:variable>
       <xsl:choose>
         <!--There are valid subfields to append to -->
-        <xsl:when test="count(*:subfield[matches(@code, $okSubfields)]) &gt; 0">
+        <xsl:when
+          test="not(matches($okSubfields, '\[\]')) and matches($sourceTag, '\d\d\d') and count(*:subfield[matches(@code, $okSubfields)]) &gt; 0">
           <xsl:variable name="groupedSubfields">
             <xsl:for-each-group select="$pass1/*:subfield"
               group-starting-with="*:subfield[matches(@code, $okSubfields)]">
@@ -8104,17 +8499,32 @@
             </subfield>
           </xsl:for-each>
         </xsl:when>
-        <!-- No valid subfields; output the invalid subfields -->
+        <!-- No $6 or no valid subfields; output the invalid subfields -->
         <xsl:otherwise>
-          <xsl:apply-templates select="*:subfield" mode="phase2"/>
+          <xsl:apply-templates select="*:subfield"/>
         </xsl:otherwise>
       </xsl:choose>
     </datafield>
   </xsl:template>
 
-  <!-- Join illegal subfields to preceding sibling in datafields other than 880 and 9xx -->
-  <xsl:template
-    match="*:datafield[not(matches(@tag, '9'))] | *:datafield[matches(@tag, '019|029|049|090|092|096|098|099|490|539|590|591|592|593|594|595|596|597|598|599|690|691|695|696|697|698|699')]"
+  <!-- Join multiple 019 datafields into a single field -->
+  <xsl:template match="*:datafield[@tag = '019'][1]" mode="phase1">
+    <datafield>
+      <xsl:apply-templates select="@*"/>
+      <!-- Ignore subfields other than $a; they're illegal -->
+      <xsl:apply-templates select="*:subfield[@code = 'a']"/>
+      <xsl:apply-templates
+        select="following-sibling::*:datafield[@tag = '019']/*:subfield[@code = 'a']"/>
+    </datafield>
+  </xsl:template>
+  <!-- Ignore datafield 019 after the first one -->
+  <xsl:template match="*:datafield[@tag = '019'][position() &gt; 1]" mode="phase1"/>
+
+  <!-- Join illegal subfields to preceding sibling in many datafields, i.e., 
+    any datafield whose tag doesn't contain '9' as well as 029, 096, etc. -->
+  <xsl:template match="
+      *:datafield[not(matches(@tag, '9'))] |
+      *:datafield[matches(@tag, '029|096|098|099|490|539|590|591|592|593|594|595|596|597|598|599|690|691|695|696|697|698|699')]"
     mode="phase1">
     <datafield>
       <xsl:apply-templates select="@*"/>
@@ -8174,19 +8584,190 @@
         </xsl:when>
         <!-- No valid subfields; output the invalid subfields -->
         <xsl:otherwise>
-          <xsl:apply-templates select="*:subfield" mode="phase2"/>
+          <xsl:apply-templates select="*:subfield"/>
         </xsl:otherwise>
       </xsl:choose>
     </datafield>
   </xsl:template>
 
+  <!-- Replace ind2="[Oo]" w/ "0" (zero) -->
+  <xsl:template match="@ind2[matches(., 'O', 'i')]" mode="phase1" priority="2">
+    <xsl:attribute name="ind2">
+      <xsl:text>0</xsl:text>
+    </xsl:attribute>
+  </xsl:template>
+
+
   <!-- ======================================================================= -->
   <!-- MATCH TEMPLATES (phase 2)                                               -->
   <!-- ======================================================================= -->
 
+  <xsl:template match="*:record" mode="phase2">
+    <record xmlns="http://www.loc.gov/MARC21/slim">
+      <!-- Process leader, controlfields, and datafields preceding 035 -->
+      <xsl:copy-of select="*:leader"/>
+      <xsl:apply-templates select="*:controlfield"/>
+      <xsl:apply-templates select="*:datafield[number(@tag) &lt; 35]"/>
+      <!-- Process 035s normally -->
+      <xsl:variable name="systemControlNumbers">
+        <xsl:apply-templates select="*:datafield[number(@tag) = 35]"/>
+      </xsl:variable>
+      <!-- Keep only 035s where subfield $a has a parenthetical system identifier -->
+      <xsl:variable name="systemControlNumbersWithSystemID">
+        <xsl:copy-of
+          select="$systemControlNumbers/*:datafield[matches(*:subfield[@code = 'a'], '\(')]"/>
+      </xsl:variable>
+      <!-- Clean up 035/$a values -->
+      <xsl:variable name="systemControlNumbersClean">
+        <xsl:for-each select="$systemControlNumbersWithSystemID/*:datafield">
+          <xsl:copy>
+            <xsl:apply-templates select="@*"/>
+            <xsl:for-each select="*:subfield">
+              <xsl:copy>
+                <xsl:apply-templates select="@*"/>
+                <xsl:choose>
+                  <xsl:when test="@code = 'a'">
+                    <xsl:value-of
+                      select="replace(replace(normalize-space(.), '[^\(\)A-Za-z0-9]', '', 'i'), '^[^\(]+', '')"
+                    />
+                  </xsl:when>
+                  <xsl:otherwise>
+                    <xsl:value-of select="."/>
+                  </xsl:otherwise>
+                </xsl:choose>
+              </xsl:copy>
+            </xsl:for-each>
+          </xsl:copy>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:copy-of select="$systemControlNumbersClean"/>
+
+      <!-- Process datafields following 035, but preceding 090 -->
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt; 35 and number(@tag) &lt; 90]"/>
+
+      <!-- Process unique 090s -->
+      <xsl:for-each select="*:datafield[@tag = '090']">
+        <xsl:variable name="thisValue">
+          <xsl:value-of select="replace(normalize-space(.), '\s', '')"/>
+        </xsl:variable>
+        <xsl:if test="
+            not(preceding-sibling::*:datafield[@tag = '090']
+            [replace(normalize-space(.), '\s', '') = $thisValue]) and
+            not(../*:datafield[@tag = '099'][replace(normalize-space(.), '\s', '') = $thisValue])">
+          <xsl:apply-templates select="."/>
+        </xsl:if>
+      </xsl:for-each>
+
+      <!-- Process datafields following 090 -->
+      <!-- Group datafields by hundreds, sort by @tag except 5xx and 6xx which remain in document order -->
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt; 90 and number(@tag) &lt; 100]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 100 and number(@tag) &lt; 200]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 200 and number(@tag) &lt; 300]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 300 and number(@tag) &lt; 400]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 400 and number(@tag) &lt; 500]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 500 and number(@tag) &lt; 600]"/>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 600 and number(@tag) &lt; 700]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 700 and number(@tag) &lt; 800]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 800 and number(@tag) &lt; 900]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt;= 900 and number(@tag) &lt; 991]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+
+      <xsl:apply-templates select="*:datafield[@tag = '991']"/>
+      <xsl:if test="not(*:datafield[@tag = '991'])">
+        <datafield tag="991" ind1=" " ind2=" ">
+          <subfield code="a">MARC validation project</subfield>
+        </datafield>
+      </xsl:if>
+      <xsl:apply-templates select="*:datafield[number(@tag) &gt; 991]">
+        <xsl:sort select="number(@tag)"/>
+      </xsl:apply-templates>
+    </record>
+  </xsl:template>
+
+  <xsl:template match="*:datafield[@tag = '991']" mode="phase2">
+    <datafield tag="991" ind1=" " ind2=" ">
+      <xsl:apply-templates
+        select="*:subfield[@code = 'a'][normalize-space(.) != 'MARC validation project']"/>
+      <subfield code="a">MARC validation project</subfield>
+    </datafield>
+  </xsl:template>
+
+  <!-- Repair Type of date/Publication status flag -->
+  <xsl:template match="
+      *:controlfield[@tag = '008'][matches(substring(., 7, 1), '[cdiku]') and
+      ../*:leader[matches(substring(., 8, 1), 'm')]]" mode="phase2">
+    <controlfield tag="008">
+      <xsl:variable name="c260">
+        <!-- Some records, e.g., u10459, use lowercase 'l' as number 1 -->
+        <xsl:for-each select="../*:datafield[@tag = '260']/*:subfield[@code = 'c']">
+          <xsl:value-of select="normalize-space(replace(., 'l', '1'))"/>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:variable name="date1">
+        <xsl:value-of select="substring(., 8, 4)"/>
+      </xsl:variable>
+      <xsl:variable name="date2">
+        <xsl:value-of select="substring(., 12, 4)"/>
+      </xsl:variable>
+      <!-- In date1copy and date2copy, character class contains
+        copyright sign, copyright sign for recordings, "c", or "p" -->
+      <xsl:variable name="date1copy">
+        <xsl:value-of select="concat('[©℗cp]\s*', substring(., 8, 4))"/>
+      </xsl:variable>
+      <xsl:variable name="date2copy">
+        <xsl:value-of select="concat('[©℗cp]\s*', substring(., 12, 4))"/>
+      </xsl:variable>
+      <xsl:variable name="dateRange">
+        <xsl:value-of select="concat(substring(., 8, 4), '-', substring(., 12, 4))"/>
+      </xsl:variable>
+      <xsl:choose>
+        <!-- 260$c contains a date range -->
+        <xsl:when test="matches($c260, $dateRange)">
+          <xsl:value-of select="concat(substring(., 1, 6), 'm', substring(., 8))"/>
+        </xsl:when>
+        <!-- 260$c contains a copyright or production date -->
+        <xsl:when test="matches($c260, $date1copy) or matches($c260, $date2copy)">
+          <xsl:value-of select="concat(substring(., 1, 6), 't', substring(., 8))"/>
+        </xsl:when>
+        <!-- 2 dates in 008 and 260$c matches either one; this is a slightly different
+          version of the previous test -->
+        <xsl:when test="normalize-space($date2) != '' and matches($c260, $date1) or matches($c260, $date2)">
+          <xsl:value-of select="concat(substring(., 1, 6), 't', substring(., 8))"/>
+        </xsl:when>
+        <!-- There's a 500 note containing the string 'reprint' -->
+        <xsl:when test="../*:datafield[@tag = '500'][matches(., 'reprint', 'i')]">
+          <xsl:value-of select="concat(substring(., 1, 6), 'r', substring(., 8))"/>
+        </xsl:when>
+        <xsl:when test="normalize-space(substring(., 12, 4)) = ''">
+          <xsl:value-of select="concat(substring(., 1, 6), 's', substring(., 8))"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="."/>
+        </xsl:otherwise>
+      </xsl:choose>      
+    </controlfield>
+  </xsl:template>
+
   <!-- Repair @ind1 -->
   <!-- Replace ind1="[Oo]" w/ "0" (zero) -->
-  <xsl:template match="@ind1[matches(., 'O', 'i')]" priority="2" mode="phase2">
+  <xsl:template match="@ind1[matches(., 'O', 'i')]" mode="phase2" priority="2">
     <xsl:attribute name="ind1">
       <xsl:text>0</xsl:text>
     </xsl:attribute>
@@ -8213,6 +8794,20 @@
       <xsl:text>&#32;</xsl:text>
     </xsl:attribute>
   </xsl:template>
+  <xsl:template match="*:datafield[matches(@tag, '(650)')]/@ind1[not(matches(., '[\s012]'))]"
+    mode="phase2">
+    <xsl:attribute name="ind1">
+      <xsl:choose>
+        <xsl:when test="count(ancestor::*:record/*:datafield[matches(@tag, '(650)')]) = 1">
+          <xsl:text>0</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>&#32;</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:attribute>
+  </xsl:template>
+
   <!-- Series traced/untraced -->
   <xsl:template match="*:datafield[matches(@tag, '(490)')]/@ind1[not(matches(., '[01]'))]"
     mode="phase2">
@@ -8229,6 +8824,20 @@
       </xsl:choose>
     </xsl:attribute>
   </xsl:template>
+  <xsl:template match="*:datafield[matches(@tag, '(490)')]/@ind1[matches(., '1')]" mode="phase2">
+    <xsl:attribute name="ind1">
+      <xsl:choose>
+        <!-- Change ind1 to '0' if there's no 8XX -->
+        <xsl:when test="not(ancestor::*:record/*:datafield[matches(@tag, '(800|810|811|830)')])">
+          <xsl:text>0</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>1</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:attribute>
+  </xsl:template>
+
   <!-- Best-guess value = '0' -->
   <xsl:template match="*:datafield[matches(@tag, '(505)')]/@ind1[not(matches(., '[0128]'))]"
     mode="phase2">
@@ -8256,13 +8865,49 @@
     </xsl:attribute>
   </xsl:template>
 
+  <!-- Replace non-compliant value with best-guess value -->
+  <xsl:template match="*:datafield[matches(@tag, '655')]/@ind1[not(matches(., '[\s0]'))]"
+    mode="phase2">
+    <xsl:choose>
+      <xsl:when test="count(../*:subfield[matches(@code, '[ab]')]) &gt; 1">
+        <xsl:attribute name="ind1">
+          <xsl:text>0</xsl:text>
+        </xsl:attribute>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:attribute name="ind1">
+          <xsl:text>&#32;</xsl:text>
+        </xsl:attribute>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <!-- Repair name type flag in ind1 -->
+  <xsl:template match="*:datafield[matches(@tag, '800')]/@ind1[not(matches(., '[013]'))]"
+    mode="phase2">
+    <xsl:choose>
+      <xsl:when
+        test="matches(replace(normalize-space(../*:subfield[@code = 'a']), '\W+$', ''), ',')">
+        <xsl:attribute name="ind1">
+          <xsl:text>1</xsl:text>
+        </xsl:attribute>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:attribute name="ind1">
+          <xsl:text>0</xsl:text>
+        </xsl:attribute>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
   <!-- Repair @ind2 -->
   <!-- Replace ind2="[Oo]" w/ "0" (zero) -->
-  <xsl:template match="@ind2[matches(., 'O', 'i')]" priority="2" mode="phase2">
+  <!--<xsl:template match="@ind2[matches(., 'O', 'i')]" priority="2">
     <xsl:attribute name="ind2">
       <xsl:text>0</xsl:text>
     </xsl:attribute>
-  </xsl:template>
+  </xsl:template>-->
+
   <!-- Fixed value = ' ' -->
   <xsl:template
     match="*:datafield[matches(@tag, '(010|013|015|016|018|019|020|022|025|026|027|029|030|031|032|035|036|037|038|040|042|043|044|045|046|051|052|061|066|070|071|074|080|083|084|085|086|088|090|092|096|100|110|111|130|250|251|254|255|256|257|258|260|261|262|263|300|306|307|310|321|336|337|338|340|341|343|344|345|346|347|348|351|352|355|357|362|365|366|370|380|381|383|384|385|386|388|490|500|501|502|504|506|507|508|510|511|513|514|515|516|518|520|521|522|524|525|526|530|532|533|534|535|536|538|539|540|541|542|544|545|546|547|550|552|555|556|561|562|563|565|567|580|581|583|584|585|586|588|590|591|592|593|594|595|596|597|598|654|658|662|720|751|752|753|754|758|800|810|811|841|842|843|844|845|850|855|876|877|878|882|883|884|886|887|910|936|938|987|994|999)')]/@ind2[not(matches(., '&#32;'))]"
@@ -8285,8 +8930,22 @@
     </xsl:attribute>
   </xsl:template>
   <!-- Replace non-compliant value with best-guess value -->
+  <xsl:template match="*:datafield[matches(@tag, '505')]/@ind2[not(matches(., '\s0'))]"
+    mode="phase2">
+    <xsl:attribute name="ind2">
+      <xsl:choose>
+        <xsl:when
+          test="count(../*:subfield[@code = 'a']) = 1 and count(../*:subfield[@code != 'a']) = 0">
+          <xsl:text>&#32;</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>0</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:attribute>
+  </xsl:template>
   <xsl:template
-    match="*:datafield[matches(@tag, '600|610|611|630|647|648|650|651|655')]/@ind2[not(matches(., '[07]'))]"
+    match="*:datafield[matches(@tag, '600|610|611|630|647|648|650|651|655')]/@ind2[not(matches(., '[0-7]'))]"
     mode="phase2">
     <xsl:choose>
       <xsl:when test="../*:subfield[@code = '2']">
@@ -8308,6 +8967,12 @@
       <xsl:text>&#32;</xsl:text>
     </xsl:attribute>
   </xsl:template>
+  <xsl:template match="*:datafield[matches(@tag, '(830)')]/@ind2[not(matches(., '[0-9]'))]"
+    mode="phase2">
+    <xsl:attribute name="ind2">
+      <xsl:text>0</xsl:text>
+    </xsl:attribute>
+  </xsl:template>
   <xsl:template match="*:datafield[matches(@tag, '866')]/@ind2[not(matches(., '[0127]'))]"
     mode="phase2">
     <xsl:attribute name="ind2">
@@ -8315,98 +8980,166 @@
     </xsl:attribute>
   </xsl:template>
 
-  <!-- 035 -->
-  <xsl:template match="*:datafield[@tag = '035']" mode="phase2">
-    <!-- Compress subfields -->
-    <xsl:variable name="pass1">
-      <xsl:variable name="thisTag">
-        <xsl:value-of select="@tag"/>
-      </xsl:variable>
-      <xsl:call-template name="compressSubfields">
-        <xsl:with-param name="tag">
-          <xsl:value-of select="$thisTag"/>
-        </xsl:with-param>
-        <xsl:with-param name="subfieldList">
-          <xsl:for-each select="*:subfield">
-            <xsl:copy>
-              <xsl:copy-of select="@*"/>
-              <xsl:value-of select="normalize-space(.)"/>
-            </xsl:copy>
-          </xsl:for-each>
-        </xsl:with-param>
-      </xsl:call-template>
-    </xsl:variable>
-    <datafield>
-      <xsl:apply-templates select="@*"/>
-      <!-- Replace subfield 9 with subfield z -->
-      <xsl:for-each select="$pass1//*:subfield">
-        <subfield>
-          <xsl:attribute name="code">
-            <xsl:choose>
-              <xsl:when test="@code = '9'">
-                <xsl:text>z</xsl:text>
-              </xsl:when>
-              <xsl:otherwise>
-                <xsl:value-of select="@code"/>
-              </xsl:otherwise>
-            </xsl:choose>
-          </xsl:attribute>
-          <xsl:value-of select="."/>
-        </subfield>
-      </xsl:for-each>
-    </datafield>
+  <!-- Fix 040 erroneous subfield @code -->
+  <xsl:template match="*:datafield[matches(@tag, '040')]/*:subfield[@code = 'b' and . = 'VA@']"
+    mode="phase2">
+    <subfield code="d">VA@</subfield>
   </xsl:template>
 
   <!-- 041 -->
-  <xsl:template match="*:datafield[@tag = '041']/*:subfield[matches(@code, '[abdefghjkmnpqr]')]"
-    mode="phase2">
+  <xsl:template match="*:datafield[@tag = '041']" mode="phase2">
     <xsl:choose>
-      <!-- Split multiple codes without separators into multiple subfields -->
-      <xsl:when test="matches(., '^[a-z]+$')">
-        <xsl:call-template name="split041subfield">
-          <xsl:with-param name="thisValue">
-            <!-- Replace common errors -->
-            <xsl:value-of
-              select="replace(replace(normalize-space(.), '[^a-zA-Z]+$', ''), 'jap', 'jpn')"/>
-          </xsl:with-param>
-        </xsl:call-template>
+      <!-- Replace 041 with 043 when subfield @code is missing -->
+      <xsl:when test="count(*:subfield) = 1 and count(*:subfield[not(@code)]) = 1">
+        <datafield tag="043" ind1=" " ind2=" ">
+          <subfield code="a">
+            <xsl:value-of select="."/>
+          </subfield>
+        </datafield>
       </xsl:when>
-      <!-- Split multiple codes with separators into multiple subfields -->
-      <xsl:when test="matches(., '([a-z]{3})+')">
-        <xsl:variable name="thisSubfield">
-          <xsl:value-of select="@code"/>
-        </xsl:variable>
-        <xsl:analyze-string select="replace(normalize-space(.), '[^a-zA-Z]+$', '')" regex="[^a-z]+">
-          <xsl:non-matching-substring>
-            <subfield code="{$thisSubfield}">
-              <!-- Replace common errors -->
-              <xsl:value-of select="replace(., 'jap', 'jpn')"/>
-            </subfield>
-          </xsl:non-matching-substring>
-        </xsl:analyze-string>
+      <!-- Replace 041 with 043 when subfield $a matches '-' -->
+      <xsl:when
+        test="count(*:subfield) = 1 and count(*:subfield[@code = 'a']) = 1 and matches(*:subfield[@code = 'a'], '-')">
+        <datafield tag="043" ind1=" " ind2=" ">
+          <subfield code="a">
+            <xsl:value-of select="."/>
+          </subfield>
+        </datafield>
       </xsl:when>
-      <!-- Single code -->
-      <xsl:otherwise>
+      <!-- Split over-long 041 subfields into multiple subfields -->
+      <xsl:when test="*:subfield[string-length(.) &gt; 3]">
         <xsl:copy>
-          <!-- Replace common errors -->
-          <xsl:value-of
-            select="replace(replace(normalize-space(.), '[^a-zA-Z]+$', ''), 'jap', 'jpn')"/>
+          <xsl:apply-templates select="@tag"/>
+          <!-- Set @ind1 based on presence of subfield $h or $n -->
+          <xsl:attribute name="ind1">
+            <xsl:choose>
+              <xsl:when test="*:subfield[matches(@code, '[hn]')]">
+                <xsl:text>1</xsl:text>
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:value-of select="@ind1"/>
+              </xsl:otherwise>
+            </xsl:choose>
+          </xsl:attribute>
+          <xsl:apply-templates select="@ind2"/>
+
+          <xsl:for-each select="*:subfield">
+            <xsl:choose>
+              <!-- Split multiple codes without separators into multiple subfields -->
+              <xsl:when test="matches(., '([a-z]{3})+$')">
+                <xsl:call-template name="split041subfield">
+                  <xsl:with-param name="thisValue">
+                    <!-- Fix common errors -->
+                    <xsl:value-of
+                      select="replace(replace(replace(replace(replace(normalize-space(.), '[^a-zA-Z]+$', ''), 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng'), 'rur', 'rus')"
+                    />
+                  </xsl:with-param>
+                </xsl:call-template>
+              </xsl:when>
+              <!-- Split multiple codes with separators into multiple subfields -->
+              <xsl:when test="matches(., '([a-z]{3}[^a-z])+')">
+                <xsl:variable name="thisSubfield">
+                  <xsl:value-of select="@code"/>
+                </xsl:variable>
+                <xsl:analyze-string select="replace(normalize-space(.), '[^a-zA-Z]+$', '')"
+                  regex="[^a-z]+">
+                  <xsl:non-matching-substring>
+                    <subfield code="{$thisSubfield}">
+                      <!-- Fix common errors -->
+                      <xsl:value-of select="replace(replace(replace(replace(., 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng'), 'rur', 'rus')"/>
+                    </subfield>
+                  </xsl:non-matching-substring>
+                </xsl:analyze-string>
+              </xsl:when>
+              <!-- Single code -->
+              <xsl:otherwise>
+                <subfield>
+                  <xsl:attribute name="code">
+                    <xsl:choose>
+                      <xsl:when test="@code">
+                        <xsl:value-of select="@code"/>
+                      </xsl:when>
+                      <xsl:otherwise>
+                        <xsl:text>a</xsl:text>
+                      </xsl:otherwise>
+                    </xsl:choose>
+                  </xsl:attribute>
+                  <!-- Fix common errors -->
+                  <xsl:value-of select="replace(replace(replace(replace(replace(normalize-space(.), '[^a-zA-Z]+$', ''), 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng'), 'rur', 'rus')"/>
+                </subfield>
+              </xsl:otherwise>
+            </xsl:choose>
+          </xsl:for-each>
         </xsl:copy>
+      </xsl:when>
+      <!-- "Regular" 041 -->
+      <xsl:otherwise>
+        <datafield>
+          <xsl:apply-templates select="@*"/>
+          <xsl:apply-templates/>
+        </datafield>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
 
-  <!-- Join all 049s into a single datafield -->
-  <xsl:template match="*:datafield[matches(@tag, '049')][1]" mode="phase2">
-    <datafield>
-      <xsl:apply-templates select="@*" mode="phase2"/>
-      <xsl:apply-templates select="*:subfield" mode="phase2"/>
-      <xsl:apply-templates select="following-sibling::*:datafield[matches(@tag, '049')]/*:subfield"
-        mode="phase2"/>
-    </datafield>
+  <xsl:template match="*:datafield[@tag = '041']/*:subfield[not(matches(@code, '[b]'))]"
+    mode="phase2">
+    <!-- Fix common errors -->
+    <subfield>
+      <xsl:attribute name="code">
+        <xsl:value-of select="@code"/>
+      </xsl:attribute>
+      <xsl:value-of select="replace(replace(replace(replace(replace(normalize-space(.), '[^a-zA-Z]+$', ''), 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng'), 'rur', 'rus')"/>
+    </subfield>
   </xsl:template>
+
+  <xsl:template match="*:datafield[@tag = '041']/*:subfield[@code = 'b']" mode="phase2">
+    <xsl:choose>
+      <!-- Substitute $j for $b for video material -->
+      <xsl:when test="
+          ancestor::*:record/*:datafield[@tag = '099'][*:subfield[@code = 'a'][matches(., '^VIDEO', 'i')]] or
+          ancestor::*:record/*:datafield[@tag = '245'][*:subfield[@code = 'h'][matches(., 'videorecording', 'i')]] or
+          ancestor::*:record/*:controlfield[@tag = '007'][substring(., 1, 1) = 'v']">
+        <!-- Fix common errors -->
+        <subfield code="j">
+          <xsl:value-of select="replace(replace(replace(replace(replace(normalize-space(.), '[^a-zA-Z]+$', ''), 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng'), 'rur', 'rus')"/>
+        </subfield>
+      </xsl:when>
+      <!-- Fix common errors -->
+      <xsl:otherwise>
+        <subfield code="b">
+          <xsl:value-of select="replace(replace(replace(replace(replace(normalize-space(.), '[^a-zA-Z]+$', ''), 'jap', 'jpn'), 'ing', 'eng'), 'end', 'eng'), 'rur', 'rus')"/>
+        </subfield>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <!-- 041/@ind 1 -->
+  <xsl:template match="*:datafield[@tag = '041']/@ind1" mode="phase2">
+    <xsl:attribute name="ind1">
+      <xsl:choose>
+        <xsl:when test="../*:subfield[@code = 'h']">
+          <xsl:text>1</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="."/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:attribute>
+  </xsl:template>
+
+  <!-- Uncomment the following templates if 049s are not to be deleted -->
+  <!-- Join all 049s into a single datafield -->
+  <!--<xsl:template match="*:datafield[matches(@tag, '049')][1]" mode="phase2">
+    <datafield>
+      <xsl:apply-templates select="@*"/>
+      <xsl:apply-templates select="*:subfield"/>
+      <xsl:apply-templates select="following-sibling::*:datafield[matches(@tag, '049')]/*:subfield"
+       />
+    </datafield>
+  </xsl:template>-->
   <!-- Ignore 049s other than the first -->
-  <xsl:template match="*:datafield[matches(@tag, '049')][position() &gt; 1]" mode="phase2"/>
+  <!--<xsl:template match="*:datafield[matches(@tag, '049')][position() &gt; 1]"/ mode="phase2">-->
 
   <!-- In 110, 111, 610, 611, 710, and 711 replace ind1 = "&#32;" (space) with ind1="0" -->
   <xsl:template
@@ -8437,7 +9170,7 @@
   </xsl:template>
 
   <!-- Since 245 isn't repeatable, convert occurrences after the first to 246? -->
-  <!--<xsl:template match="*:datafield[matches(@tag, '245')][position() &gt; 1]">
+  <!--<xsl:template match="*:datafield[matches(@tag, '245')][position() &gt; 1]" mode="phase2">
     
   </xsl:template>-->
 
@@ -8455,6 +9188,20 @@
     </xsl:attribute>
   </xsl:template>
 
+  <!-- Repair 246 indicators -->
+  <xsl:template match="*:datafield[matches(@tag, '246')]/@ind1[not(matches(., '[0123]'))]"
+    mode="phase2">
+    <xsl:attribute name="ind1">
+      <xsl:text>1</xsl:text>
+    </xsl:attribute>
+  </xsl:template>
+  <xsl:template match="*:datafield[matches(@tag, '246')]/@ind2[not(matches(., '[\s0-8]'))]"
+    mode="phase2">
+    <xsl:attribute name="ind2">
+      <xsl:text>&#32;</xsl:text>
+    </xsl:attribute>
+  </xsl:template>
+
   <!-- Replace 506$s with $a -->
   <xsl:template match="*:datafield[@tag = '506']/*:subfield[@code = 's']" mode="phase2">
     <subfield code="a">
@@ -8465,7 +9212,7 @@
   <!-- In 600 keep only allowed subfields -->
   <xsl:template match="*:datafield[@tag = '600']" mode="phase2">
     <datafield>
-      <xsl:apply-templates select="@*" mode="phase2"/>
+      <xsl:apply-templates select="@*"/>
       <xsl:copy-of select="*:subfield[matches(@code, '[abcdefghjklmnopqrstuvxyz0123468]')]"/>
     </datafield>
   </xsl:template>
@@ -8492,7 +9239,7 @@
     </datafield>
   </xsl:template>
 
-  <!-- 773 -->
+  <!-- Delete 773 when $a matches library name in 999 -->
   <xsl:template match="*:datafield[@tag = '773']" mode="phase2">
     <!-- Create a look-up table of library names -->
     <xsl:variable name="libraries">
@@ -8531,92 +9278,365 @@
     </xsl:attribute>
   </xsl:template>
 
-  <!-- Repair non-compliant 880/$6 -->
-  <xsl:template match="*:datafield[@tag = '880']/*:subfield[@code = '6']" mode="phase2">
-    <!-- Tokenize $6 on '/' -->
-    <subfield code="6">
+  <!-- ======================================================================= -->
+  <!-- MATCH TEMPLATES (phase 3)                                               -->
+  <!-- ======================================================================= -->
+
+  <!-- 010 -->
+  <xsl:template match="*:datafield[@tag = '010'][1]" mode="phase3">
+    <xsl:choose>
+      <!-- Copy when datafield 010 is not repeated or following-sibling 
+        datafield 010 has fields other than $z -->
+      <xsl:when test="
+          not(following-sibling::*:datafield[@tag = '010'])
+          or following-sibling::*:datafield[@tag = '010']/*:subfield[matches(@code, '[^z]')]">
+        <xsl:copy>
+          <xsl:apply-templates select="@*"/>
+          <xsl:apply-templates/>
+        </xsl:copy>
+      </xsl:when>
+      <!-- Datafield 010 repeated -->
+      <!-- Following sibling 010 has only $z subfields -->
+      <xsl:when
+        test="count(following-sibling::*:datafield[@tag = '010']/*:subfield[@code = 'z']) = count(following-sibling::*:datafield[@tag = '010']/*:subfield)">
+        <!-- Include following sibling $z subfields -->
+        <xsl:copy>
+          <xsl:apply-templates select="@*"/>
+          <xsl:apply-templates/>
+          <xsl:apply-templates
+            select="following-sibling::*:datafield[@tag = '010']/*:subfield[@code = 'z']"/>
+        </xsl:copy>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template match="*:datafield[@tag = '010'][position() &gt; 1]" mode="phase3">
+    <!-- Process 010 if there are subfields other than $z -->
+    <xsl:if test="not(count(*:subfield[@code = 'z']) = count(*:subfield))">
+      <xsl:copy>
+        <xsl:apply-templates select="@*"/>
+        <xsl:apply-templates/>
+      </xsl:copy>
+    </xsl:if>
+  </xsl:template>
+
+  <!-- Delete 035 that doesn't have $a -->
+  <!--<xsl:template match="*:datafield[@tag = '035' and not(*:subfield[@code = 'a'])]"/>-->
+
+  <!-- Join all 040s into a single datafield -->
+  <!--<xsl:template match="*:datafield[@tag = '040' and following-sibling::*:datafield[@tag = '040']][1]">-->
+  <xsl:template match="*:datafield[@tag = '040'][1]" mode="phase3">
+    <xsl:copy>
+      <xsl:apply-templates select="@*"/>
+      <xsl:apply-templates select="*:subfield"/>
+      <xsl:for-each select="following-sibling::*:datafield[@tag = '040']">
+        <xsl:apply-templates select="*:subfield"/>
+      </xsl:for-each>
+    </xsl:copy>
+  </xsl:template>
+  <!-- Delete 040 other than first -->
+  <xsl:template match="*:datafield[@tag = '040'][position() &gt; 1]" mode="phase3"/>
+
+  <!-- Create 041 $h when @ind1 = '1', there are 2 subfields, and $h doesn't already exist -->
+  <xsl:template match="
+      *:datafield[@tag = '041' and @ind1 = '1'
+      and *:subfield[@code = 'a'] and count(*:subfield) = 2 and
+      not(*:subfield[matches(@code, '[hn]')])]" mode="phase3">
+    <xsl:copy>
+      <xsl:apply-templates select="@*"/>
+      <xsl:variable name="pubLang">
+        <xsl:value-of select="substring(ancestor::*:record/*:controlfield[@tag = '008'], 36, 3)"/>
+      </xsl:variable>
       <xsl:choose>
-        <!-- 3 tokens (2 slashes) -->
-        <xsl:when test="count(tokenize(normalize-space(.), '/')) = 3">
-          <xsl:variable name="linkedTag">
-            <xsl:value-of select="normalize-space(tokenize(., '/')[1])"/>
-          </xsl:variable>
-          <xsl:variable name="script">
-            <xsl:value-of select="normalize-space(tokenize(., '/')[2])"/>
-          </xsl:variable>
-          <xsl:variable name="direction">
-            <xsl:value-of select="normalize-space(tokenize(., '/')[3])"/>
-          </xsl:variable>
-          <!-- Output the component tokens -->
-          <!-- Tag linked to -->
-          <xsl:value-of select="$linkedTag"/>
-          <!-- Script code -->
-          <xsl:choose>
-            <!-- MARC-compliant script code -->
-            <xsl:when test="matches($script, '^(\([BNS23]|\$1|\d{3}|[A-Za-z]{4})$')">
-              <xsl:value-of select="concat('/', $script)"/>
-            </xsl:when>
-            <xsl:otherwise>
-              <xsl:text>/Zyyy</xsl:text>
-            </xsl:otherwise>
-          </xsl:choose>
-          <!-- Direction -->
-          <xsl:if test="normalize-space($direction) ne ''">
-            <xsl:text>/r</xsl:text>
-          </xsl:if>
+        <!-- When there's a subfield that matches 008/35-37 -->
+        <xsl:when test="*:subfield[matches(., $pubLang)] and *:subfield[not(matches(., $pubLang))]">
+          <subfield code="a">
+            <xsl:value-of select="*:subfield[matches(., $pubLang)][1]"/>
+          </subfield>
+          <subfield code="h">
+            <xsl:value-of select="
+                replace(replace(replace(replace(replace(
+                *:subfield[not(matches(., $pubLang))][1], 'ser', 'srp'),
+                'cro', 'hrv'),
+                'scs', 'srp'),
+                'scc', 'srp'),
+                'scr', 'srp')"/>
+          </subfield>
         </xsl:when>
-        <!-- 2 tokens (1 slash) -->
-        <xsl:when test="count(tokenize(normalize-space(.), '/')) = 2">
-          <xsl:variable name="linkedTag">
-            <xsl:value-of select="normalize-space(tokenize(., '/')[1])"/>
-          </xsl:variable>
-          <xsl:variable name="token2">
-            <xsl:value-of select="normalize-space(tokenize(., '/')[2])"/>
-          </xsl:variable>
-          <xsl:value-of select="$linkedTag"/>
-          <xsl:choose>
-            <!-- $token2 contains script code -->
-            <xsl:when test="matches($token2, '^(\([BNS23]|\$1|\d{3}|[A-Za-z]{4})$')">
-              <xsl:value-of select="concat('/', $token2)"/>
-            </xsl:when>
-            <!-- $token2 contains direction indicator -->
-            <xsl:otherwise>
-              <xsl:text>/Zyyy/r</xsl:text>
-            </xsl:otherwise>
-          </xsl:choose>
-        </xsl:when>
-        <!-- 1 token (no slashes) -->
-        <xsl:when test="count(tokenize(normalize-space(.), '/')) = 1">
-          <xsl:analyze-string select="." regex="^(\d\d\d-\d\d)(.*)$">
-            <xsl:matching-substring>
-              <xsl:value-of select="regex-group(1)"/>
-              <xsl:choose>
-                <!-- script code & direction present -->
-                <xsl:when test="matches(regex-group(2), '^.+r$')">
-                  <xsl:value-of select="concat('/', substring-before(regex-group(2), 'r'), '/r')"/>
-                </xsl:when>
-                <!-- script code missing, direction present -->
-                  <xsl:when test="matches(regex-group(2), '^r$')">
-                  <xsl:text>/Zyyy/r</xsl:text>
-                </xsl:when>
-                <!-- script code present, direction missing -->
-                <xsl:when test="matches(regex-group(2), '.+')">
-                  <xsl:value-of select="concat('/', regex-group(2))"/>
-                </xsl:when>
-              </xsl:choose>
-            </xsl:matching-substring>
-          </xsl:analyze-string>
-        </xsl:when>
-        <!-- More than 3 tokens: pass the error along -->
+        <!-- Pass the error through -->
         <xsl:otherwise>
-          <xsl:value-of select="."/>
+          <xsl:apply-templates select="*:subfield"/>
         </xsl:otherwise>
       </xsl:choose>
+    </xsl:copy>
+  </xsl:template>
+
+  <!-- Repair incorrect 041 @ind1 when there are 2 subfields: $a and $h -->
+  <xsl:template match="
+      *:datafield[@tag = '041' and
+      @ind1 = '0' and *:subfield[@code = 'a'] and count(*:subfield) = 2 and
+      *:subfield[matches(@code, '[hn]')]]" mode="phase3">
+    <datafield tag="041" ind1="1">
+      <xsl:apply-templates select="@ind2"/>
+      <xsl:apply-templates select="*:subfield"/>
+    </datafield>
+  </xsl:template>
+
+  <!-- Repair 041 incorrect @ind1 when there are only subfields matching 
+    $b, d, e, f, g, i, j, m, p, q, r, and t -->
+  <xsl:template match="
+      *:datafield[@tag = '041' and
+      @ind1 = '1' and count(*:subfield[matches(@code, '[bdefgijmpqrt]')]) =
+      count(*:subfield[matches(@code, '[a-z]')])]" mode="phase3">
+    <datafield tag="041" ind1="0">
+      <xsl:apply-templates select="@ind2"/>
+      <xsl:apply-templates select="*:subfield"/>
+    </datafield>
+  </xsl:template>
+
+  <!-- Fix common language code errors -->
+  <xsl:template match="*:datafield[@tag = '041']/*:subfield[matches(@code, '[a-z]')]" mode="phase3">
+    <xsl:variable name="thisCode">
+      <xsl:value-of select="@code"/>
+    </xsl:variable>
+    <subfield code="{$thisCode}">
+      <xsl:value-of select="
+          replace(replace(replace(replace(replace(replace(., 'ser', 'srp'),
+          'cro', 'hrv'),
+          'scs', 'srp'),
+          'scc', 'srp'),
+          'scr', 'srp'), 'fle', 'dut')"/>
     </subfield>
   </xsl:template>
 
+  <!-- Ensure that 044/$a is 3 characters long -->
+  <xsl:template match="*:datafield[@tag = '044']/*:subfield[@code = 'a']" mode="phase3">
+    <subfield code="a">
+      <xsl:value-of select="substring(concat(normalize-space(.), '   '), 1, 3)"/>
+    </subfield>
+  </xsl:template>
+
+  <!-- Set @ind2 to '3' when 246/$a is not a substring of 245 -->
+  <xsl:template match="*:datafield[@tag = '246' and @ind2 = '0']" mode="phase3">
+    <xsl:variable name="title245">
+      <xsl:for-each
+        select="ancestor::*:record/*:datafield[@tag = '245']/*:subfield[not(matches(@code, '[h678]'))]">
+        <xsl:value-of select="."/>
+        <xsl:text>&#32;</xsl:text>
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:variable name="title245norm">
+      <xsl:value-of select="normalize-space(replace($title245, '[\p{P}|\$]', ''))"/>
+    </xsl:variable>
+    <xsl:variable name="subfieldA"
+      select="normalize-space(replace(*:subfield[@code = 'a'], '[\p{P}|\$]', ''))"/>
+    <xsl:copy>
+      <xsl:copy-of select="@tag"/>
+      <xsl:copy-of select="@ind1"/>
+      <xsl:attribute name="ind2">
+        <xsl:choose>
+          <xsl:when test="matches($title245norm, $subfieldA, 'i')">
+            <xsl:text>0</xsl:text>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:text>3</xsl:text>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:attribute>
+      <xsl:apply-templates/>
+    </xsl:copy>
+  </xsl:template>
+
+  <!-- Repair language coding error in 775/subfield $f -->
+  <xsl:template match="*:datafield[@tag = '775']/*:subfield[@code = 'f']" mode="phase3">
+    <subfield>
+      <xsl:copy-of select="@*"/>
+      <xsl:choose>
+        <xsl:when test="matches(., '^[a-zA-Z][a-zA-Z]$')">
+          <xsl:value-of select="concat(lower-case(.), ' ')"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="replace(lower-case(.), 'fre', 'fr ')"/>
+        </xsl:otherwise>
+      </xsl:choose>      
+    </subfield>
+  </xsl:template>
+
+  <!-- Repair subfield 6 and indicators on 880 -->
+  <xsl:template match="*:datafield[@tag = '880']" mode="phase3">
+    <datafield>
+      <xsl:variable name="subfields">
+        <xsl:for-each select="*:subfield">
+          <xsl:choose>
+            <xsl:when test="@code = '6'">
+              <subfield code="6">
+              <xsl:choose>
+                <!-- 3 tokens (2 slashes) -->
+                <xsl:when test="count(tokenize(normalize-space(.), '/')) = 3">
+                  <xsl:variable name="linkedTag">
+                    <xsl:value-of select="normalize-space(tokenize(., '/')[1])"/>
+                  </xsl:variable>
+                  <xsl:variable name="linkingTag">
+                    <xsl:value-of select="concat('880-', substring-after($linkedTag, '-'))"/>
+                  </xsl:variable>
+                  <xsl:variable name="script">
+                    <xsl:value-of select="normalize-space(tokenize(., '/')[2])"/>
+                  </xsl:variable>
+                  <xsl:variable name="direction">
+                    <xsl:value-of select="normalize-space(tokenize(., '/')[3])"/>
+                  </xsl:variable>
+                  <!-- Output the component tokens -->
+                  <!-- Tag linked to -->
+                  <xsl:value-of select="$linkedTag"/>
+                  <!--<xsl:choose>
+                    <!-\- When linking tag was a 490 that got changed to 440 -\->
+                    <xsl:when test="matches($linkedTag, '^490') and ancestor::*:record/*:datafield[matches(*:subfield[@code = '6'], $linkingTag)]/@tag = '440'">
+                      <xsl:value-of select="concat('440-', substring-after($linkedTag, '-'))"/>
+                    </xsl:when>
+                    <xsl:otherwise>
+                      <xsl:value-of select="$linkedTag"/>
+                    </xsl:otherwise>
+                  </xsl:choose>-->
+                  <!-- Script code -->
+                  <xsl:choose>
+                    <!-- MARC-compliant script code -->
+                    <xsl:when test="matches($script, '^(\([BNS23]|\$1|\d{3}|[A-Za-z]{4})$')">
+                      <xsl:value-of select="concat('/', $script)"/>
+                    </xsl:when>
+                    <xsl:otherwise>
+                      <xsl:text>/Zyyy</xsl:text>
+                    </xsl:otherwise>
+                  </xsl:choose>
+                  <!-- Direction -->
+                  <xsl:if test="normalize-space($direction) ne ''">
+                    <xsl:text>/r</xsl:text>
+                  </xsl:if>
+                </xsl:when>
+                <!-- 2 tokens (1 slash) -->
+                <xsl:when test="count(tokenize(normalize-space(.), '/')) = 2">
+                  <xsl:variable name="linkedTag">
+                    <xsl:value-of select="normalize-space(tokenize(., '/')[1])"/>
+                  </xsl:variable>
+                  <xsl:variable name="linkingTag">
+                    <xsl:value-of select="concat('880-', substring-after($linkedTag, '-'))"/>
+                  </xsl:variable>
+                  <xsl:variable name="token2">
+                    <xsl:value-of select="normalize-space(tokenize(., '/')[2])"/>
+                  </xsl:variable>
+                  <xsl:choose>
+                    <!-- When linking tag was a 490 that got changed to 440 -->
+                    <xsl:when test="matches($linkedTag, '^490') and ancestor::*:record/*:datafield[matches(*:subfield[@code = '6'], $linkingTag)]/@tag = '440'">
+                      <xsl:value-of select="concat('440-', substring-after($linkedTag, '-'))"/>
+                    </xsl:when>
+                    <xsl:otherwise>
+                      <xsl:value-of select="$linkedTag"/>
+                    </xsl:otherwise>
+                  </xsl:choose>
+                  <xsl:choose>
+                    <!-- $token2 contains script code -->
+                    <xsl:when test="matches($token2, '^(\([BNS23]|\$1|\d{3}|[A-Za-z]{4})$')">
+                      <xsl:value-of select="concat('/', $token2)"/>
+                    </xsl:when>
+                    <!-- $token2 contains direction indicator -->
+                    <xsl:otherwise>
+                      <xsl:text>/Zyyy/r</xsl:text>
+                    </xsl:otherwise>
+                  </xsl:choose>
+                </xsl:when>
+                <!-- 1 token (no slashes) -->
+                <xsl:when test="count(tokenize(normalize-space(.), '/')) = 1">
+                  <xsl:analyze-string select="." regex="^(\d\d\d-\d\d)(.*)$">
+                    <xsl:matching-substring>
+                      <xsl:value-of select="regex-group(1)"/>
+                      <xsl:choose>
+                        <!-- script code & direction present -->
+                        <xsl:when test="matches(regex-group(2), '^.+r$')">
+                          <xsl:value-of select="concat('/', substring-before(regex-group(2), 'r'), '/r')"/>
+                        </xsl:when>
+                        <!-- script code missing, direction present -->
+                        <xsl:when test="matches(regex-group(2), '^r$')">
+                          <xsl:text>/Zyyy/r</xsl:text>
+                        </xsl:when>
+                        <!-- script code present, direction missing -->
+                        <xsl:when test="matches(regex-group(2), '.+')">
+                          <xsl:value-of select="concat('/', regex-group(2))"/>
+                        </xsl:when>
+                      </xsl:choose>
+                    </xsl:matching-substring>
+                  </xsl:analyze-string>
+                </xsl:when>
+                <!-- More than 3 tokens: pass the error along -->
+                <xsl:otherwise>
+                  <xsl:value-of select="."/>
+                </xsl:otherwise>
+              </xsl:choose>
+            </subfield>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:copy-of select="."/>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:for-each>
+      </xsl:variable>
+      <xsl:apply-templates select="@tag"/>
+      <xsl:choose>
+        <xsl:when test="matches($subfields/*:subfield[@code = '6'], '/')">
+          <xsl:variable name="linkingField">
+            <xsl:value-of select="substring-before($subfields/*:subfield[@code = '6'], '/')"/>
+          </xsl:variable>
+          <xsl:variable name="linkingTag">
+            <xsl:value-of select="substring-before($linkingField, '-')"/>
+          </xsl:variable>
+          <xsl:variable name="occurrenceNum">
+            <xsl:value-of select="substring-after($linkingField, '-')"/>
+          </xsl:variable>
+          <xsl:variable name="linkedField">
+            <xsl:value-of select="concat('880-', $occurrenceNum)"/>
+          </xsl:variable>
+          <xsl:choose>
+            <!-- Linked field doesn't exist; use indicators as they are -->
+            <xsl:when
+              test="$occurrenceNum = '00' or not(ancestor::*:record/*:datafield[matches(@tag, $linkingTag) and matches(*:subfield[@code = '6'], $linkedField)])">
+              <xsl:apply-templates select="@ind1"/>
+              <xsl:apply-templates select="@ind2"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <!-- Use indicators from linked field -->
+              <xsl:attribute name="ind1">
+                <xsl:value-of
+                  select="ancestor::*:record/*:datafield[matches(@tag, $linkingTag) and matches(*:subfield[@code = '6'], $linkedField)]/@ind1"
+                />
+              </xsl:attribute>
+              <xsl:attribute name="ind2">
+                <xsl:value-of
+                  select="ancestor::*:record/*:datafield[matches(@tag, $linkingTag) and matches(*:subfield[@code = '6'], $linkedField)]/@ind2"
+                />
+              </xsl:attribute>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:when>
+        <!-- Malformed subfield 6, use indicators as they are -->
+        <xsl:otherwise>
+          <xsl:apply-templates select="@ind1"/>
+          <xsl:apply-templates select="@ind2"/>
+        </xsl:otherwise>
+      </xsl:choose>
+      <xsl:copy-of select="$subfields"/>
+    </datafield>
+  </xsl:template>
+
+  <!-- Delete no-longer-needed 999s -->
+  <xsl:template match="*:datafield[@tag = '999']" mode="phase3">
+    <xsl:choose>
+      <xsl:when test="matches($keep999s, 'true', 'i')">
+        <xsl:copy-of select="."/>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
+
   <!-- ======================================================================= -->
-  <!-- DEFAULT TEMPLATE                                                        -->
+  <!-- DEFAULT TEMPLATE  (all modes)                                           -->
   <!-- ======================================================================= -->
 
   <!-- Identity template -->
@@ -8626,5 +9646,7 @@
       <xsl:apply-templates mode="#current"/>
     </xsl:copy>
   </xsl:template>
+
+
 
 </xsl:stylesheet>
