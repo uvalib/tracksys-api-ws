@@ -53,41 +53,46 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	}
 	clearCache := false
 	if c.Query("nocache") != "" {
-		clearCache = true
+		clearCache, _ = strconv.ParseBool(c.Query("nocache"))
 	}
+	log.Printf("INFO: get %s metadata for %s with nocache=%t", mdType, pid, clearCache)
 
 	// first, see if it is a masterfile pid and pull the metadata pid...
+	var resp metadata
 	log.Printf("INFO: check if %s is a master file", pid)
-	var mf masterFile
-	dbResp := svc.GDB.Preload("Metadata").Joins("left outer join metadata m on m.id = metadata_id").Where("master_files.pid=?", pid).First(&mf)
-	if dbResp.Error == nil {
-		log.Printf("INFO: %s is a master file. Metadata PID=%s", pid, mf.Metadata.PID)
-		pid = mf.Metadata.PID
-	} else if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
-		log.Printf("ERROR: metadata query to find masterfile %s failed: %s", pid, dbResp.Error.Error())
-		c.String(http.StatusInternalServerError, dbResp.Error.Error())
-		return
+	var mf []masterFile
+	err := svc.GDB.Preload("Metadata").Joins("left outer join metadata m on m.id = metadata_id").Where("master_files.pid=?", pid).Limit(1).Find(&mf).Error
+	if len(mf) == 1 && err == nil {
+		log.Printf("INFO: %s is a master file. Metadata PID=%s", pid, mf[0].Metadata.PID)
+		pid = mf[0].Metadata.PID
+		resp = mf[0].Metadata
+	} else {
+		if err != nil {
+			log.Printf("ERROR: metadata query to find masterfile %s failed: %s", pid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
 
-	// Now get metadata details
-	var resp metadata
-	dbResp = svc.GDB.Where("pid=?", pid).First(&resp)
-	if dbResp.Error != nil {
-		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
-			log.Printf("ERROR: %s not found: %s", pid, dbResp.Error.Error())
-			c.String(http.StatusInternalServerError, dbResp.Error.Error())
-		} else {
-			log.Printf("WARNING: %s not found", pid)
-			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
+	if resp.PID == "" {
+		log.Printf("INFO: check if %s is metadata", pid)
+		dbResp := svc.GDB.Where("pid=?", pid).First(&resp)
+		if dbResp.Error != nil {
+			if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+				log.Printf("ERROR: %s not found: %s", pid, dbResp.Error.Error())
+				c.String(http.StatusInternalServerError, dbResp.Error.Error())
+			} else {
+				log.Printf("WARNING: %s not found", pid)
+				c.String(http.StatusNotFound, fmt.Sprintf("%s not found", pid))
+			}
+			return
 		}
-		return
 	}
 
 	// Beyond this point, we have a valid metadata record in TrackSys. Any other
 	// issue found after this is an error and should return and log failure instead of not found
 
 	// Simple request for brief metadata on this item
-	var err error
 	if mdType == "brief" {
 		type jsonOut struct {
 			PID             string `json:"pid"`
@@ -117,7 +122,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 
 	// Get MARC data for this item; only valid for Sirsi PIDs
 	if mdType == "marc" {
-		respBytes, err := svc.getMarc(resp)
+		respBytes, err := svc.getMarc(resp, clearCache)
 		if err != nil {
 			log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -193,12 +198,14 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	c.String(http.StatusBadRequest, "invalid metadata type")
 }
 
-func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
-	log.Printf("INFO: Get MARC for %s", md.PID)
-	marc := svc.getCache("marc", md.PID)
-	if marc != nil {
-		log.Printf("INFO: returning cached MARC")
-		return marc, nil
+func (svc *ServiceContext) getMarc(md metadata, resetCache bool) ([]byte, error) {
+	log.Printf("INFO: Get MARC for %s with resetCache=%t", md.PID, resetCache)
+	if resetCache == false {
+		marc := svc.getCache("marc", md.PID)
+		if marc != nil {
+			log.Printf("INFO: returning cached MARC")
+			return marc, nil
+		}
 	}
 
 	log.Printf("INFO: Get MARC from Sirsi")
@@ -227,14 +234,17 @@ func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
 }
 
 func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, error) {
-	fixedMarc := svc.getCache("fixedmarc", md.PID)
-	if fixedMarc != nil {
-		log.Printf("INFO: returning cached FixedMARC")
-		return fixedMarc, nil
+	log.Printf("INFO: Get fixedMARC for PID %s with clearCache=%t", md.PID, clearCache)
+	if clearCache == false {
+		fixedMarc := svc.getCache("fixedmarc", md.PID)
+		if fixedMarc != nil {
+			log.Printf("INFO: returning cached FixedMARC")
+			return fixedMarc, nil
+		}
 	}
 
 	payload := url.Values{}
-	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc", svc.APIURL, md.PID))
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=marc&nocache=%t", svc.APIURL, md.PID, clearCache))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/fixmarc", svc.APIURL))
 	if clearCache {
 		log.Printf("INFO: clearing saxon cache for fixedMARC")
@@ -245,7 +255,7 @@ func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, e
 	bodyBytes, err := svc.saxonTransform(&payload)
 	if err != nil {
 		log.Printf("WARNING: fixmarc failed with %s. Just transform original marc", err.Error())
-		return svc.getMarc(md)
+		return svc.getMarc(md, clearCache)
 	}
 	// Cache the fixed MARC in the MARC field of the data for this PID
 	log.Printf("INFO: Cache fixedMARC for %s", md.PID)
@@ -254,17 +264,19 @@ func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, e
 }
 
 func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error) {
-	log.Printf("INFO: Get MODS for PID %s", md.PID)
-	mods := svc.getCache("mods", md.PID)
-	if mods != nil {
-		log.Printf("INFO: returning cached MODS")
-		return mods, nil
+	log.Printf("INFO: Get MODS for PID %s with clearCache=%t", md.PID, clearCache)
+	if clearCache == false {
+		mods := svc.getCache("mods", md.PID)
+		if mods != nil {
+			log.Printf("INFO: returning cached MODS")
+			return mods, nil
+		}
 	}
 
 	if md.Type == "SirsiMetadata" {
 		log.Printf("INFO: Generating MODS for %s", md.PID)
 		payload := url.Values{}
-		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc", svc.APIURL, md.PID))
+		payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=fixedmarc&nocache=%t", svc.APIURL, md.PID, clearCache))
 		payload.Set("style", fmt.Sprintf("%s/stylesheet/marctomods", svc.APIURL))
 		if clearCache {
 			log.Printf("INFO: clearing saxon cache for MARC->MODS")
@@ -288,15 +300,17 @@ func (svc *ServiceContext) getMODS(md metadata, clearCache bool) ([]byte, error)
 }
 
 func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, error) {
-	log.Printf("INFO: Get uvaMAP for PID %s", md.PID)
-	uvaMAP := svc.getCache("uvamap", md.PID)
-	if uvaMAP != nil {
-		log.Printf("INFO: returning cached UVAMAP")
-		return uvaMAP, nil
+	log.Printf("INFO: Get uvaMAP for PID %s with clearCache=%t", md.PID, clearCache)
+	if clearCache == false {
+		uvaMAP := svc.getCache("uvamap", md.PID)
+		if uvaMAP != nil {
+			log.Printf("INFO: returning cached UVAMAP")
+			return uvaMAP, nil
+		}
 	}
 
 	payload := url.Values{}
-	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=mods", svc.APIURL, md.PID))
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=mods&nocache=%t", svc.APIURL, md.PID, clearCache))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/modstouvamap", svc.APIURL))
 
 	payload.Set("PID", md.PID)
@@ -324,13 +338,17 @@ func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, erro
 }
 
 func (svc *ServiceContext) getDPLA(md metadata, clearCache bool) ([]byte, error) {
-	dpla := svc.getCache("dpla", md.PID)
-	if dpla != nil {
-		log.Printf("INFO: returning cached DPLA")
-		return dpla, nil
+	log.Printf("INFO: Get DPLA metadata for PID %s with clearCache=%t", md.PID, clearCache)
+	if clearCache == false {
+		dpla := svc.getCache("dpla", md.PID)
+		if dpla != nil {
+			log.Printf("INFO: returning cached DPLA")
+			return dpla, nil
+		}
 	}
+
 	payload := url.Values{}
-	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=uvamap", svc.APIURL, md.PID))
+	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=uvamap&nocache=%t", svc.APIURL, md.PID, clearCache))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/uvamaptodpla", svc.APIURL))
 	if clearCache {
 		log.Printf("INFO: clearing saxon cache for uvaMAP->DPLA")

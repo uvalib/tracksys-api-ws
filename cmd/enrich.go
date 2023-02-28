@@ -108,7 +108,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 		}
 
 		mdUseRight := svc.CNE
-		respBytes, err := svc.getMarc(md)
+		respBytes, err := svc.getMarc(md, true)
 		if err != nil {
 			log.Printf("ERROR: Unable to get MARC for %s, default to CNE: %s", md.PID, err.Error())
 		} else {
