@@ -75,17 +75,29 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	key := c.Param("key")
 	log.Printf("INFO: get enriched sirsi metadata for catalog key %s", key)
 	var mdRecs []metadata
-	mdResp := svc.GDB.Where("catalog_key=? and date_dl_ingest is not null", key).
-		Order("call_number asc").Find(&mdRecs)
-	if mdResp.Error != nil {
-		if errors.Is(mdResp.Error, gorm.ErrRecordNotFound) == false {
-			log.Printf("ERROR: sirsi %s not found for enriched metadata: %s", key, mdResp.Error.Error())
-			c.String(http.StatusInternalServerError, mdResp.Error.Error())
+	err := svc.GDB.Where("catalog_key=? and date_dl_ingest is not null", key).Order("call_number asc").Find(&mdRecs).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: sirsi %s not found for enriched metadata: %s", key, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
 		} else {
 			log.Printf("WARNING: %s not found", key)
 			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
 		}
 		return
+	}
+
+	log.Printf("INFO: getMarc for %s to extract use right information", key)
+	mdUseRight := svc.CNE
+	respBytes, err := svc.getMarc(mdRecs[0], false)
+	if err != nil {
+		log.Printf("ERROR: Unable to get MARC for %s, default to CNE: %s", key, err.Error())
+	} else {
+		mdUseRight, err = svc.getUseRightFromMARC(respBytes)
+		if err != nil {
+			log.Printf("INFO: unable to extract use righ from marc for metadata %s; default to CNE: %s", key, err.Error())
+			mdUseRight = svc.CNE
+		}
 	}
 
 	var out struct {
@@ -105,18 +117,6 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 		if cntResp.Error != nil {
 			log.Printf("INFO: no published units available for %s: %s", key, cntResp.Error.Error())
 			continue
-		}
-
-		mdUseRight := svc.CNE
-		respBytes, err := svc.getMarc(md, false)
-		if err != nil {
-			log.Printf("ERROR: Unable to get MARC for %s, default to CNE: %s", md.PID, err.Error())
-		} else {
-			mdUseRight, err = svc.getUseRightFromMARC(respBytes)
-			if err != nil {
-				log.Printf("INFO: unable to extract use righ from marc for metadata %s; default to CNE: %s", md.PID, err.Error())
-				mdUseRight = svc.CNE
-			}
 		}
 
 		log.Printf("INFO: get enrich data for %s belonging to catkey %s", md.PID, key)
