@@ -8672,7 +8672,7 @@
               <xsl:text>: </xsl:text>
             </xsl:when>
             <xsl:otherwise>
-              <xsl:text/>
+              <xsl:text>&#32;</xsl:text>
             </xsl:otherwise>
           </xsl:choose>
         </xsl:when>
@@ -9004,7 +9004,7 @@
                             <xsl:text>, </xsl:text>
                           </xsl:when>
                           <xsl:otherwise>
-                            <xsl:text/>
+                            <xsl:text>&#32;</xsl:text>
                           </xsl:otherwise>
                         </xsl:choose>
                       </xsl:if>
@@ -9624,7 +9624,7 @@
                               <xsl:text>, </xsl:text>
                             </xsl:when>
                             <xsl:when test="not(position() = last())">
-                              <xsl:text/>
+                              <xsl:text>&#32;</xsl:text>
                             </xsl:when>
                           </xsl:choose>
                         </xsl:for-each>
@@ -9766,7 +9766,7 @@
               <xsl:variable name="namePartSeparator">
                 <xsl:choose>
                   <xsl:when test="descendant::*[position() != last()][matches(., '[\.:,;/-]+$')]">
-                    <xsl:text/>
+                    <xsl:text>&#32;</xsl:text>
                   </xsl:when>
                   <xsl:otherwise>
                     <xsl:text>, </xsl:text>
@@ -10062,11 +10062,11 @@
       </xsl:when>
       <!-- Expanding marcmuscomp codes with strings appears to duplicate subject headings,
         so not implemented now. -->
-      <xsl:when test="matches(@authority, 'marcmuscomp')">
+      <!--<xsl:when test="matches(@authority, 'marcmuscomp')">
         <xsl:analyze-string select="normalize-space(.)" regex="-+">
           <xsl:non-matching-substring>
-            <!-- Use 'formOfComposition' instead of $fieldName? -->
-            <field name="{$fieldName}">
+            <!-\- Use 'formOfComposition' instead of $fieldName? -\->
+            <field name="genre">
               <xsl:attribute name="authority">
                 <xsl:text>marcmuscomp</xsl:text>
               </xsl:attribute>
@@ -10077,7 +10077,7 @@
             </field>
           </xsl:non-matching-substring>
         </xsl:analyze-string>
-      </xsl:when>
+      </xsl:when>-->
       <!-- Ignore lctgm values -->
       <!--<xsl:when test="matches(@authority, 'lctgm')"/>-->
       <!-- Anything else -->
@@ -10311,11 +10311,24 @@
         <xsl:variable name="thisElementName">
           <xsl:value-of select="local-name()"/>
         </xsl:variable>
+        <!-- Regex special characters must be escaped 
+          \	Backslash	Used to escape a special character
+          ^	Caret	Beginning of a string
+          $	Dollar sign	End of a string
+          .	Period or dot	Matches any single character
+          |	Vertical bar or pipe symbol	Matches previous OR next character/group
+          ?	Question mark	Match zero or one of the previous
+          *	Asterisk or star	Match zero, one or more of the previous
+          +	Plus sign	Match one or more of the previous
+          ( )	Opening and closing parenthesis	Group characters
+          [ ]	Opening and closing square bracket	Matches a range of characters
+          { }	Opening and closing curly brace	Matches a specified number of occurrences of the previous
+        -->
         <xsl:variable name="thisValue">
-          <xsl:value-of select="normalize-space(.)"/>
+          <xsl:value-of select="normalize-space(replace(., '[\$\^\*\(\)\+\[\]\{\}\\\|\.\?]', ''))"/>
         </xsl:variable>
         <xsl:if
-          test="not(preceding-sibling::*[matches(local-name(), $thisElementName)][matches(normalize-space(.), $thisValue)])">
+          test="not(preceding-sibling::*[matches(local-name(), $thisElementName)][matches(normalize-space(replace(., '[\$\^\*\(\)\+\[\]\{\}\\\|\.\?]', '')), $thisValue)])">
           <xsl:variable name="fieldName">
             <xsl:call-template name="whereAmI"/>
             <xsl:value-of select="local-name()"/>
@@ -10427,118 +10440,89 @@
         </field>
       </xsl:when>
     </xsl:choose>
-    <!-- Carrier type -->
-    <xsl:variable name="carrierTypeFieldName">
-      <xsl:call-template name="whereAmI"/>
-      <xsl:text>carrierType</xsl:text>
-    </xsl:variable>
-    <!-- Collect carrier types based on certain values of form -->
-    <xsl:variable name="mappedCarrierTypes">
-      <xsl:for-each select="*:form[not(matches(@authority, 'rdacarrier'))]">
+    <!-- Carrier Type -->
+    <!-- Collect carrier types based on certain types of <form> -->
+    <xsl:variable name="carrierTypes">
+      <xsl:for-each select="*:form[matches(@authority, 'gmd')]">
         <xsl:variable name="thisValue">
           <xsl:value-of select="normalize-space(.)"/>
         </xsl:variable>
         <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-          <xsl:value-of select="@rdaType"/>
+          <carrierType>
+            <xsl:value-of select="@rdaType"/>
+          </carrierType>
+        </xsl:for-each>
+      </xsl:for-each>
+      <xsl:for-each select="*:form[matches(@authority, 'marccategory')]">
+        <xsl:variable name="thisValue">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:variable>
+        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
+          <carrierType>
+            <xsl:value-of select="@rdaType"/>
+          </carrierType>
+        </xsl:for-each>
+      </xsl:for-each>
+      <xsl:for-each select="*:form[matches(@authority, 'marcform')]">
+        <xsl:variable name="thisValue">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:variable>
+        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
+          <carrierType>
+            <xsl:value-of select="@rdaType"/>
+          </carrierType>
+        </xsl:for-each>
+      </xsl:for-each>
+      <xsl:for-each select="*:form[matches(@authority, 'marcsmd')]">
+        <xsl:variable name="thisValue">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:variable>
+        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
+          <carrierType>
+            <xsl:value-of select="@rdaType"/>
+          </carrierType>
+        </xsl:for-each>
+      </xsl:for-each>
+      <xsl:for-each select="*:form[matches(@authority, 'rdacarrier')]">
+        <xsl:variable name="thisValue">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:variable>
+        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
+          <carrierType>
+            <xsl:value-of select="@rdaType"/>
+          </carrierType>
         </xsl:for-each>
       </xsl:for-each>
     </xsl:variable>
-    <xsl:variable name="carrierValue">
-      <xsl:choose>
-        <!-- Use RDA value -->
-        <xsl:when test="*:form[matches(@authority, 'rdacarrier')]">
-          <xsl:for-each select="*:form[matches(@authority, 'rdacarrier')]">
-            <xsl:if test="position() &gt; 1">
-              <xsl:text>, </xsl:text>
-            </xsl:if>
-            <xsl:value-of select="normalize-space(.)"/>
-          </xsl:for-each>
-        </xsl:when>
-        <!-- Map marcsmd to RDA -->
-        <xsl:when test="*:form[matches(@authority, 'marcsmd')]">
-          <xsl:for-each select="*:form[matches(@authority, 'marcsmd')]">
-            <xsl:variable name="thisValue">
-              <xsl:value-of select="normalize-space(.)"/>
-            </xsl:variable>
-            <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-              <xsl:if test="position() &gt; 1">
-                <xsl:text>, </xsl:text>
-              </xsl:if>
-              <xsl:value-of select="@rdaType"/>
-            </xsl:for-each>
-          </xsl:for-each>
-        </xsl:when>
-        <!-- Map marccategory to RDA -->
-        <xsl:when test="*:form[matches(@authority, 'marccategory')]">
-          <xsl:for-each select="*:form[matches(@authority, 'marccategory')]">
-            <xsl:variable name="thisValue">
-              <xsl:value-of select="normalize-space(.)"/>
-            </xsl:variable>
-            <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-              <xsl:if test="position() &gt; 1">
-                <xsl:text>, </xsl:text>
-              </xsl:if>
-              <xsl:value-of select="@rdaType"/>
-            </xsl:for-each>
-          </xsl:for-each>
-        </xsl:when>
-        <!-- Map GMD to RDA -->
-        <xsl:when test="*:form[matches(@authority, 'gmd')]">
-          <xsl:choose>
-            <xsl:when test="$mappedCarrierTypes/*:carrierType">
-              <xsl:for-each select="$mappedCarrierTypes/*:carrierType">
-                <xsl:if test="position() &gt; 1">
-                  <xsl:text>, </xsl:text>
-                </xsl:if>
-                <xsl:value-of select="normalize-space(.)"/>
-              </xsl:for-each>
-            </xsl:when>
-          </xsl:choose>
-        </xsl:when>
-        <!-- Map marcform to RDA -->
-        <xsl:when test="*:form[matches(@authority, 'marcform')]">
-          <xsl:choose>
-            <xsl:when test="$mappedCarrierTypes/*:carrierType">
-              <xsl:for-each select="$mappedCarrierTypes/*:carrierType">
-                <xsl:if test="position() &gt; 1">
-                  <xsl:text>, </xsl:text>
-                </xsl:if>
-                <xsl:value-of select="normalize-space(.)"/>
-              </xsl:for-each>
-            </xsl:when>
-          </xsl:choose>
-        </xsl:when>
-        <!-- Map internetMediaType or digitalOrigin to RDA -->
-        <xsl:when test="*:internetMediaType or *:digitalOrigin">
-          <xsl:text>online resource</xsl:text>
-        </xsl:when>
-      </xsl:choose>
+    <xsl:variable name="carrierTypeFieldName">
+      <xsl:call-template name="whereAmI"/>
+    <xsl:text>carrierType</xsl:text>
     </xsl:variable>
-    <field>
-      <xsl:attribute name="name">
-        <xsl:value-of select="$carrierTypeFieldName"/>
-      </xsl:attribute>
-      <xsl:choose>
-        <xsl:when test="normalize-space($carrierValue) ne ''">
-          <xsl:value-of select="normalize-space($carrierValue)"/>
-        </xsl:when>
-        <xsl:when test="matches(ancestor::*:mods/*:typeOfResource, 'text')">
-          <xsl:text>volume</xsl:text>
-        </xsl:when>
-        <xsl:when test="matches(ancestor::*:mods/*:typeOfResource, 'object')">
-          <xsl:text>object</xsl:text>
-        </xsl:when>
-        <xsl:when test="*:extent[matches(., 'compact disc')] or ../*:note[matches(., 'CD')]">
-          <xsl:text>computer disc</xsl:text>
-        </xsl:when>
-        <xsl:when test="*:extent[matches(., 'videodisc')] or ../*:note[matches(., 'DVD')]">
-          <xsl:text>videodisc</xsl:text>
-        </xsl:when>
-        <xsl:otherwise>
-          <xsl:text>unspecified</xsl:text>
-        </xsl:otherwise>
-      </xsl:choose>
-    </field>
+    <xsl:choose>
+      <xsl:when test="$carrierTypes/*:carrierType[not(matches(., '^other'))]">
+        <xsl:for-each
+          select="distinct-values($carrierTypes/*:carrierType[not(matches(., '^other'))])">
+          <xsl:sort/>
+          <field>
+            <xsl:attribute name="name">
+              <xsl:value-of select="$carrierTypeFieldName"/>
+            </xsl:attribute>
+            <xsl:value-of select="normalize-space(.)"/>
+          </field>
+        </xsl:for-each>
+      </xsl:when>
+    <xsl:otherwise>
+        <xsl:for-each select="distinct-values($carrierTypes/*:carrierType)">
+          <xsl:sort/>
+          <field>
+            <xsl:attribute name="name">
+              <xsl:value-of select="$carrierTypeFieldName"/>
+            </xsl:attribute>
+            <xsl:value-of select="normalize-space(.)"/>
+          </field>
+        </xsl:for-each>
+      </xsl:otherwise>
+    </xsl:choose>
     <!-- Physical extent -->
     <!-- Multiple extent elements result in multiple physExtent elements in the output -->
     <xsl:variable name="fieldName">
@@ -10609,7 +10593,7 @@
     <!-- Other non-facet-able technical details -->
     <!-- Collected into a single physDetails element -->
     <xsl:if
-      test="*:form[matches(@type, 'material|technique')] or *:note[matches(@type, '^uvax-') and not(matches(@type, 'alphabetScript|brailleClass|brailleMusicFormat|colorContent|containsIndex|filmPresentationFormat|formOfComposition|illustrations|instrumentsVoicesCode|musicKey|musicParts|performanceMedium|physDimensions|playbackChannels|playbackSpecial|playingSpeed|playingTime|projection|relief|scoreFormat|soundContent|transpositionArrangement|videoFormat'))]">
+      test="*:form[matches(@type, 'material|technique')] or *:note[matches(@type, '^uvax-') and not(matches(@type, 'alphabetScript|brailleClass|brailleMusicFormat|colorContent|containsBibrefs|containsIndex|filmPresentationFormat|formOfComposition|illustrations|instrumentsVoicesCode|musicKey|musicParts|performanceMedium|physDimensions|playbackChannels|playbackSpecial|playingSpeed|playingTime|projection|relief|scoreFormat|soundContent|transpositionArrangement|videoFormat'))]">
       <xsl:variable name="fieldName">
         <xsl:call-template name="whereAmI"/>
         <xsl:text>physDetails</xsl:text>
@@ -10759,64 +10743,67 @@
       <xsl:call-template name="whereAmI"/>
       <xsl:text>seriesStatement</xsl:text>
     </xsl:variable>
-    <field name="{$fieldName}">
-      <xsl:value-of
-        select="normalize-space(string-join(*:titleInfo/*[not(matches(local-name(), 'nonSort'))], ', '))"/>
-      <xsl:for-each select="*:originInfo[not(normalize-space(.) = '')]">
-        <xsl:text>. </xsl:text>
-        <xsl:for-each select="*:place[not(normalize-space(.) = '')]/*:placeTerm">
-          <xsl:if test="position() &gt; 1">
-            <xsl:text>, </xsl:text>
-          </xsl:if>
-          <xsl:value-of select="normalize-space(.)"/>
-        </xsl:for-each>
-        <xsl:text>: </xsl:text>
-        <xsl:for-each select="*:dateCreated">
-          <xsl:value-of select="."/>
-        </xsl:for-each>
-      </xsl:for-each>
-      <xsl:if test="*:part[not(normalize-space(.) = '')]">
-        <xsl:text>, </xsl:text>
-      </xsl:if>
-      <xsl:for-each select="*:part">
-        <xsl:variable name="detailText">
-          <xsl:for-each select="*:detail">
-            <xsl:if test="position() != 1">
+    <xsl:if test="normalize-space(*:titleInfo) != ''">
+      <field name="{$fieldName}">
+        <xsl:value-of
+          select="normalize-space(string-join(*:titleInfo/*[not(matches(local-name(), 'nonSort'))], ', '))"/>
+        <xsl:for-each select="*:originInfo[not(normalize-space(.) = '')]">
+          <xsl:text>. </xsl:text>
+          <xsl:for-each select="*:place[not(normalize-space(.) = '')]/*:placeTerm">
+            <xsl:if test="position() &gt; 1">
               <xsl:text>, </xsl:text>
             </xsl:if>
-            <xsl:if test="not(normalize-space(@type) eq '')">
-              <xsl:value-of select="concat(normalize-space(@type), ' ')"/>
-            </xsl:if>
-            <xsl:value-of select="normalize-space(string-join(*[normalize-space(.) ne ''], ' '))"/>
+            <xsl:value-of select="normalize-space(.)"/>
           </xsl:for-each>
-          <xsl:if test="*:extent">
-            <xsl:text>,  </xsl:text>
-            <xsl:for-each select="*:extent">
-              <xsl:choose>
-                <xsl:when test="*:start or *:end">
-                  <xsl:choose>
-                    <xsl:when test="matches(@unit, 'page') and *:start and *:end">pp. </xsl:when>
-                    <xsl:when test="matches(@unit, 'page') and *:start">p. </xsl:when>
-                  </xsl:choose>
-                  <xsl:value-of select="*:start"/>
-                  <xsl:if test="*:end">
-                    <xsl:value-of select="concat('-', *:end)"/>
-                  </xsl:if>
-                </xsl:when>
-                <xsl:when test="*:list">
-                  <xsl:value-of select="normalize-space(*:list)"/>
-                </xsl:when>
-              </xsl:choose>
+        <xsl:text>: </xsl:text>
+          <xsl:for-each select="*:dateCreated">
+            <xsl:value-of select="."/>
+          </xsl:for-each>
+        </xsl:for-each>
+        <xsl:if test="*:part[not(normalize-space(.) = '')]">
+          <xsl:text>, </xsl:text>
+        </xsl:if>
+        <xsl:for-each select="*:part">
+          <xsl:variable name="detailText">
+            <xsl:for-each select="*:detail">
+              <xsl:if test="position() != 1">
+                <xsl:text>, </xsl:text>
+              </xsl:if>
+              <xsl:if test="not(normalize-space(@type) eq '')">
+                <xsl:value-of select="concat(normalize-space(@type), ' ')"/>
+              </xsl:if>
+              <xsl:value-of select="normalize-space(string-join(*[normalize-space(.) ne ''], ' '))"
+              />
             </xsl:for-each>
-          </xsl:if>
-          <xsl:if test="*:date">
-            <xsl:text>,  </xsl:text>
-            <xsl:value-of select="normalize-space(string-join(*:date, ' '))"/>
-          </xsl:if>
-        </xsl:variable>
+            <xsl:if test="*:extent">
+              <xsl:text>, &#32;</xsl:text>
+              <xsl:for-each select="*:extent">
+                <xsl:choose>
+                  <xsl:when test="*:start or *:end">
+                    <xsl:choose>
+                      <xsl:when test="matches(@unit, 'page') and *:start and *:end">pp. </xsl:when>
+                      <xsl:when test="matches(@unit, 'page') and *:start">p. </xsl:when>
+                    </xsl:choose>
+                    <xsl:value-of select="*:start"/>
+                    <xsl:if test="*:end">
+                      <xsl:value-of select="concat('-', *:end)"/>
+                    </xsl:if>
+                  </xsl:when>
+                  <xsl:when test="*:list">
+                    <xsl:value-of select="normalize-space(*:list)"/>
+                  </xsl:when>
+                </xsl:choose>
+              </xsl:for-each>
+            </xsl:if>
+            <xsl:if test="*:date">
+              <xsl:text>, &#32;</xsl:text>
+              <xsl:value-of select="normalize-space(string-join(*:date, ' '))"/>
+            </xsl:if>
+          </xsl:variable>
         <xsl:value-of select="normalize-space($detailText)"/>
-      </xsl:for-each>
-    </field>
+        </xsl:for-each>
+      </field>
+      </xsl:if>
   </xsl:template>
 
   <!-- Constituent -->
@@ -10915,7 +10902,7 @@
               <xsl:value-of select="normalize-space(.)"/>
               <xsl:choose>
                 <xsl:when test="matches(normalize-space(.), '[\.,;:]$')">
-                  <xsl:text/>
+                  <xsl:text>&#32;</xsl:text>
                 </xsl:when>
                 <xsl:when test="position() != last()">
                   <xsl:text>; </xsl:text>
@@ -10937,7 +10924,7 @@
           <xsl:value-of select="normalize-space(.)"/>
           <xsl:choose>
             <xsl:when test="matches(normalize-space(.), '[\.,;:]$')">
-              <xsl:text/>
+              <xsl:text>&#32;</xsl:text>
             </xsl:when>
             <xsl:when test="position() != last()">
               <xsl:text>; </xsl:text>
@@ -11015,13 +11002,16 @@
             <xsl:text>. </xsl:text>
           </xsl:if>
           <xsl:for-each select="*:name/*[normalize-space(.) ne '']">
-            <xsl:value-of select="replace(normalize-space(.), '[:,;/]+$', '')"/>
-            <xsl:choose>
-              <xsl:when test="position() ne last()">
-                <xsl:text>, </xsl:text>
-              </xsl:when>
-              <xsl:otherwise>.</xsl:otherwise>
-            </xsl:choose>
+            <xsl:variable name="nameValue">
+              <xsl:value-of select="replace(normalize-space(.), '[:,;/]+$', '')"/>
+              <xsl:choose>
+                <xsl:when test="position() ne last()">
+                  <xsl:text>, </xsl:text>
+                </xsl:when>
+                <xsl:otherwise>.</xsl:otherwise>
+              </xsl:choose>
+            </xsl:variable>
+            <xsl:value-of select="replace(replace($nameValue, ',+', ','), '\.+', '.')"/>
           </xsl:for-each>
           <xsl:for-each select="*:location/*:url">
             <xsl:value-of select="normalize-space(.)"/>
