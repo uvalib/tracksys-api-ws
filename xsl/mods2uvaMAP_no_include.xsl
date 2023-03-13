@@ -10440,89 +10440,118 @@
         </field>
       </xsl:when>
     </xsl:choose>
-    <!-- Carrier Type -->
-    <!-- Collect carrier types based on certain types of <form> -->
-    <xsl:variable name="carrierTypes">
-      <xsl:for-each select="*:form[matches(@authority, 'gmd')]">
-        <xsl:variable name="thisValue">
-          <xsl:value-of select="normalize-space(.)"/>
-        </xsl:variable>
-        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-          <carrierType>
-            <xsl:value-of select="@rdaType"/>
-          </carrierType>
-        </xsl:for-each>
-      </xsl:for-each>
-      <xsl:for-each select="*:form[matches(@authority, 'marccategory')]">
-        <xsl:variable name="thisValue">
-          <xsl:value-of select="normalize-space(.)"/>
-        </xsl:variable>
-        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-          <carrierType>
-            <xsl:value-of select="@rdaType"/>
-          </carrierType>
-        </xsl:for-each>
-      </xsl:for-each>
-      <xsl:for-each select="*:form[matches(@authority, 'marcform')]">
-        <xsl:variable name="thisValue">
-          <xsl:value-of select="normalize-space(.)"/>
-        </xsl:variable>
-        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-          <carrierType>
-            <xsl:value-of select="@rdaType"/>
-          </carrierType>
-        </xsl:for-each>
-      </xsl:for-each>
-      <xsl:for-each select="*:form[matches(@authority, 'marcsmd')]">
-        <xsl:variable name="thisValue">
-          <xsl:value-of select="normalize-space(.)"/>
-        </xsl:variable>
-        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-          <carrierType>
-            <xsl:value-of select="@rdaType"/>
-          </carrierType>
-        </xsl:for-each>
-      </xsl:for-each>
-      <xsl:for-each select="*:form[matches(@authority, 'rdacarrier')]">
-        <xsl:variable name="thisValue">
-          <xsl:value-of select="normalize-space(.)"/>
-        </xsl:variable>
-        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
-          <carrierType>
-            <xsl:value-of select="@rdaType"/>
-          </carrierType>
-        </xsl:for-each>
-      </xsl:for-each>
-    </xsl:variable>
+    <!-- Carrier type -->
     <xsl:variable name="carrierTypeFieldName">
       <xsl:call-template name="whereAmI"/>
-    <xsl:text>carrierType</xsl:text>
+      <xsl:text>carrierType</xsl:text>
     </xsl:variable>
-    <xsl:choose>
-      <xsl:when test="$carrierTypes/*:carrierType[not(matches(., '^other'))]">
-        <xsl:for-each
-          select="distinct-values($carrierTypes/*:carrierType[not(matches(., '^other'))])">
-          <xsl:sort/>
-          <field>
-            <xsl:attribute name="name">
-              <xsl:value-of select="$carrierTypeFieldName"/>
-            </xsl:attribute>
-            <xsl:value-of select="normalize-space(.)"/>
-          </field>
+    <!-- Collect carrier types based on certain values of form -->
+    <xsl:variable name="mappedCarrierTypes">
+      <xsl:for-each select="*:form[not(matches(@authority, 'rdacarrier'))]">
+        <xsl:variable name="thisValue">
+          <xsl:value-of select="normalize-space(.)"/>
+        </xsl:variable>
+        <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
+          <xsl:value-of select="@rdaType"/>
         </xsl:for-each>
-      </xsl:when>
-    <xsl:otherwise>
-        <xsl:for-each select="distinct-values($carrierTypes/*:carrierType)">
-          <xsl:sort/>
-          <field>
-            <xsl:attribute name="name">
-              <xsl:value-of select="$carrierTypeFieldName"/>
-            </xsl:attribute>
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:variable name="carrierValue">
+      <xsl:choose>
+        <!-- Use RDA value -->
+        <xsl:when test="*:form[matches(@authority, 'rdacarrier')]">
+          <xsl:for-each select="*:form[matches(@authority, 'rdacarrier')]">
+            <xsl:if test="position() &gt; 1">
+              <xsl:text>, </xsl:text>
+            </xsl:if>
             <xsl:value-of select="normalize-space(.)"/>
-          </field>
-        </xsl:for-each>
-      </xsl:otherwise>
-    </xsl:choose>
+          </xsl:for-each>
+        </xsl:when>
+        <!-- Map marcsmd to RDA -->
+        <xsl:when test="*:form[matches(@authority, 'marcsmd')]">
+          <xsl:for-each select="*:form[matches(@authority, 'marcsmd')]">
+            <xsl:variable name="thisValue">
+              <xsl:value-of select="normalize-space(.)"/>
+            </xsl:variable>
+            <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
+              <xsl:if test="position() &gt; 1">
+                <xsl:text>, </xsl:text>
+              </xsl:if>
+              <xsl:value-of select="@rdaType"/>
+            </xsl:for-each>
+          </xsl:for-each>
+        </xsl:when>
+        <!-- Map marccategory to RDA -->
+        <xsl:when test="*:form[matches(@authority, 'marccategory')]">
+          <xsl:for-each select="*:form[matches(@authority, 'marccategory')]">
+            <xsl:variable name="thisValue">
+              <xsl:value-of select="normalize-space(.)"/>
+            </xsl:variable>
+            <xsl:for-each select="$marcCarrierMap//*:carrier[. = $thisValue]">
+              <xsl:if test="position() &gt; 1">
+                <xsl:text>, </xsl:text>
+              </xsl:if>
+              <xsl:value-of select="@rdaType"/>
+            </xsl:for-each>
+          </xsl:for-each>
+        </xsl:when>
+        <!-- Map GMD to RDA -->
+        <xsl:when test="*:form[matches(@authority, 'gmd')]">
+          <xsl:choose>
+            <xsl:when test="$mappedCarrierTypes/*:carrierType">
+              <xsl:for-each select="$mappedCarrierTypes/*:carrierType">
+                <xsl:if test="position() &gt; 1">
+                  <xsl:text>, </xsl:text>
+                </xsl:if>
+                <xsl:value-of select="normalize-space(.)"/>
+              </xsl:for-each>
+            </xsl:when>
+          </xsl:choose>
+        </xsl:when>
+        <!-- Map marcform to RDA -->
+        <xsl:when test="*:form[matches(@authority, 'marcform')]">
+          <xsl:choose>
+            <xsl:when test="$mappedCarrierTypes/*:carrierType">
+              <xsl:for-each select="$mappedCarrierTypes/*:carrierType">
+                <xsl:if test="position() &gt; 1">
+                  <xsl:text>, </xsl:text>
+                </xsl:if>
+                <xsl:value-of select="normalize-space(.)"/>
+              </xsl:for-each>
+            </xsl:when>
+          </xsl:choose>
+        </xsl:when>
+        <!-- Map internetMediaType or digitalOrigin to RDA -->
+        <xsl:when test="*:internetMediaType or *:digitalOrigin">
+          <xsl:text>online resource</xsl:text>
+        </xsl:when>
+      </xsl:choose>
+    </xsl:variable>
+    <field>
+      <xsl:attribute name="name">
+        <xsl:value-of select="$carrierTypeFieldName"/>
+      </xsl:attribute>
+      <xsl:choose>
+        <xsl:when test="normalize-space($carrierValue) ne ''">
+          <xsl:value-of select="normalize-space($carrierValue)"/>
+        </xsl:when>
+        <xsl:when test="matches(ancestor::*:mods/*:typeOfResource, 'text')">
+          <xsl:text>volume</xsl:text>
+        </xsl:when>
+        <xsl:when test="matches(ancestor::*:mods/*:typeOfResource, 'object')">
+          <xsl:text>object</xsl:text>
+        </xsl:when>
+        <xsl:when test="*:extent[matches(., 'compact disc')] or ../*:note[matches(., 'CD')]">
+          <xsl:text>computer disc</xsl:text>
+        </xsl:when>
+        <xsl:when test="*:extent[matches(., 'videodisc')] or ../*:note[matches(., 'DVD')]">
+          <xsl:text>videodisc</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:text>unspecified</xsl:text>
+        </xsl:otherwise>
+      </xsl:choose>
+    </field>
     <!-- Physical extent -->
     <!-- Multiple extent elements result in multiple physExtent elements in the output -->
     <xsl:variable name="fieldName">
@@ -10755,7 +10784,7 @@
             </xsl:if>
             <xsl:value-of select="normalize-space(.)"/>
           </xsl:for-each>
-        <xsl:text>: </xsl:text>
+          <xsl:text>: </xsl:text>
           <xsl:for-each select="*:dateCreated">
             <xsl:value-of select="."/>
           </xsl:for-each>
@@ -10800,10 +10829,10 @@
               <xsl:value-of select="normalize-space(string-join(*:date, ' '))"/>
             </xsl:if>
           </xsl:variable>
-        <xsl:value-of select="normalize-space($detailText)"/>
+          <xsl:value-of select="normalize-space($detailText)"/>
         </xsl:for-each>
       </field>
-      </xsl:if>
+    </xsl:if>
   </xsl:template>
 
   <!-- Constituent -->
