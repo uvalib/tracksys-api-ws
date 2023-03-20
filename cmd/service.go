@@ -176,10 +176,14 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
 		if errors.Is(mfResp.Error, gorm.ErrRecordNotFound) == false {
 			return "", mfResp.Error
 		}
-		log.Printf("INFO: no exemplar set for metadata id %d; choosing first masterfile", mdID)
-		mfResp = svc.GDB.Where("metadata_id=?", mdID).Order("filename asc").First(&mf)
+		log.Printf("INFO: no exemplar set for metadata id %d; choosing first digital collection masterfile", mdID)
+		mfResp = svc.GDB.Joins("inner join units u on u.id=master_files.unit_id").
+			Where("master_files.metadata_id=? AND u.intended_use_id=?", mdID, 110).
+			Order("filename asc").First(&mf)
 		if mfResp.Error != nil {
-			return "", mfResp.Error
+			if errors.Is(mfResp.Error, gorm.ErrRecordNotFound) == false {
+				return "", mfResp.Error
+			}
 		}
 	}
 

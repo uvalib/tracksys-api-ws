@@ -313,14 +313,9 @@ func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, erro
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=mods&nocache=%t", svc.APIURL, md.PID, clearCache))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/modstouvamap", svc.APIURL))
 
-	payload.Set("PID", md.PID)
-	payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
-	payload.Set("useRightsURI", "http://rightsstatements.org/vocab/CNE/1.0/") // FIUXME REMOVE THIS WHEN XSLT HAS BEEN UPDATED
-
-	// notes: don't care about this error. the preview URI going away in the next rev
-	// of the stylesheet and this code will no longer be needed
 	uri, _ := svc.getExemplarThumbURL(md.ID)
 	payload.Set("previewURI", uri)
+	log.Printf("INFO: the previewURI for %s is %s", md.PID, uri)
 
 	if clearCache {
 		log.Printf("INFO: clearing saxon cache for MODS->uvaMAP")
