@@ -37,3 +37,11 @@ func (svc *ServiceContext) updateCache(dataType string, pid string, data []byte)
 	svc.Cache.Data[key] = CacheRecord{Data: data, ExpiresAt: time.Now().Add(5 * time.Minute)}
 	svc.Cache.Mux.Unlock()
 }
+
+func (svc *ServiceContext) clearCache() {
+	svc.Cache.Mux.Lock()
+	for key := range svc.Cache.Data {
+		delete(svc.Cache.Data, key)
+	}
+	svc.Cache.Mux.Unlock()
+}

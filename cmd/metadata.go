@@ -43,6 +43,12 @@ type marcMetadata struct {
 	DataFields    []dataField    `xml:"datafield"`
 }
 
+func (svc *ServiceContext) clearMetadataCache(c *gin.Context) {
+	log.Printf("INFO: clear metadata cache")
+	svc.clearCache()
+	c.String(http.StatusOK, "cleared")
+}
+
 func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	pid := c.Param("pid")
 	mdType := c.Query("type")
