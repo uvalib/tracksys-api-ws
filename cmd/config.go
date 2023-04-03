@@ -18,7 +18,7 @@ type DBConfig struct {
 type ServiceConfig struct {
 	Port          int
 	DB            DBConfig
-	SirsiURL      string
+	SolrURL       string
 	SaxonURL      string
 	PDFServiceURL string
 	IIIFManURL    string
@@ -35,7 +35,7 @@ func LoadConfiguration() *ServiceConfig {
 	log.Printf("INFO: loading configuration...")
 	var cfg ServiceConfig
 	flag.IntVar(&cfg.Port, "port", 8080, "API service port (default 8080)")
-	flag.StringVar(&cfg.SirsiURL, "sirsi", "https://ils.lib.virginia.edu/uhtbin", "Sirsi URL")
+	flag.StringVar(&cfg.SolrURL, "solr", "http://virgo4-solr-production-replica-private.internal.lib.virginia.edu:8080/solr/test_core", "Solr URL")
 	flag.StringVar(&cfg.SaxonURL, "saxon", "https://saxon-servlet.internal.lib.virginia.edu/SaxonServlet", "Saxon servlet URL")
 	flag.StringVar(&cfg.PDFServiceURL, "pdf", "https://pdfservice.lib.virginia.edu/pdf", "PDF service URL")
 	flag.StringVar(&cfg.IIIFManURL, "iiifman", "https://iiifman.lib.virginia.edu", "IIIF Manifest service URL")
@@ -75,7 +75,7 @@ func LoadConfiguration() *ServiceConfig {
 
 	log.Printf("[CONFIG] port          = [%d]", cfg.Port)
 	log.Printf("[CONFIG] api           = [%s]", cfg.APIURL)
-	log.Printf("[CONFIG] sirsi         = [%s]", cfg.SirsiURL)
+	log.Printf("[CONFIG] solr          = [%s]", cfg.SolrURL)
 	log.Printf("[CONFIG] saxon         = [%s]", cfg.SaxonURL)
 	log.Printf("[CONFIG] tracksys      = [%s]", cfg.TrackSysURL)
 	log.Printf("[CONFIG] pdf           = [%s]", cfg.PDFServiceURL)

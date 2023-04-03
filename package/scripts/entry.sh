@@ -6,6 +6,7 @@
 # run the server
 cd bin; ./tracksys-api-ws                 \
    -api        $TRACKSYS_API_URL          \
+   -solr       $SOLR_URL                  \
    -saxon      $SAXON_SERVICE_URL         \
    -pdf        $PDF_SERVICE_URL           \
    -iiifman    $IIIF_MANIFEST_SERVICE_URL \

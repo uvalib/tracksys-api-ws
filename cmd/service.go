@@ -40,7 +40,7 @@ type Cache struct {
 type ServiceContext struct {
 	Version       string
 	APIURL        string
-	SirsiURL      string
+	SolrURL       string
 	SaxonURL      string
 	TrackSysURL   string
 	PDFServiceURL string
@@ -59,7 +59,7 @@ type ServiceContext struct {
 func InitializeService(version string, cfg *ServiceConfig) *ServiceContext {
 	ctx := ServiceContext{Version: version,
 		APIURL:        cfg.APIURL,
-		SirsiURL:      cfg.SirsiURL,
+		SolrURL:       cfg.SolrURL,
 		SaxonURL:      cfg.SaxonURL,
 		TrackSysURL:   cfg.TrackSysURL,
 		PDFServiceURL: cfg.PDFServiceURL,

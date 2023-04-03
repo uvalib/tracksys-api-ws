@@ -2,13 +2,13 @@ package main
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -204,6 +204,25 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	c.String(http.StatusBadRequest, "invalid metadata type")
 }
 
+type solrDocument struct {
+	FullRecord string `json:"fullrecord"`
+}
+
+type solrResponseHeader struct {
+	Status int `json:"status,omitempty"`
+}
+
+type solrResponseDocuments struct {
+	NumFound int            `json:"numFound,omitempty"`
+	Start    int            `json:"start,omitempty"`
+	Docs     []solrDocument `json:"docs,omitempty"`
+}
+
+type solrResponse struct {
+	Header   solrResponseHeader    `json:"responseHeader,omitempty"`
+	Response solrResponseDocuments `json:"response,omitempty"`
+}
+
 func (svc *ServiceContext) getMarc(md metadata, resetCache bool) ([]byte, error) {
 	log.Printf("INFO: Get MARC for %s with resetCache=%t", md.PID, resetCache)
 	if resetCache == false {
@@ -218,13 +237,11 @@ func (svc *ServiceContext) getMarc(md metadata, resetCache bool) ([]byte, error)
 	url := ""
 	if md.CatalogKey != "" {
 		log.Printf("INFO: lookup sirsi metadata by catalog key [%s]", md.CatalogKey)
-		re := regexp.MustCompile(`^u`)
-		cKey := re.ReplaceAll([]byte(md.CatalogKey), []byte(""))
-		url = fmt.Sprintf("%s/getMarc?ckey=%s&type=xml", svc.SirsiURL, cKey)
+		url = fmt.Sprintf("%s/select?fl=fullrecord&q=id:%s", svc.SolrURL, md.CatalogKey)
 	} else {
 		if md.Barcode != "" {
 			log.Printf("INFO: lookup sirsi metadata by barcode [%s]", md.Barcode)
-			url = fmt.Sprintf("%s/getMarc?barcode=%s&type=xml", svc.SirsiURL, md.Barcode)
+			url = fmt.Sprintf("%s/select?fl=fullrecord&q=barcode_a:%s", svc.SolrURL, md.Barcode)
 		} else {
 			return nil, fmt.Errorf("sirsi metadata %s has no barcode and no catalog key", md.PID)
 		}
@@ -234,9 +251,17 @@ func (svc *ServiceContext) getMarc(md metadata, resetCache bool) ([]byte, error)
 		return nil, err
 	}
 
+	var solr solrResponse
+	jErr := json.Unmarshal(respStr, &solr)
+	if jErr != nil {
+		log.Printf("ERROR: unable to parse solr response: %s", jErr.Error())
+		return nil, jErr
+	}
+
 	log.Printf("INFO: Cache raw MARC for %s", md.PID)
-	svc.updateCache("marc", md.PID, respStr)
-	return respStr, nil
+	out := []byte(solr.Response.Docs[0].FullRecord)
+	svc.updateCache("marc", md.PID, out)
+	return out, nil
 }
 
 func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, error) {
