@@ -128,7 +128,7 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 
 	// Get MARC data for this item; only valid for Sirsi PIDs
 	if mdType == "marc" {
-		respBytes, err := svc.getMarc(resp, clearCache)
+		respBytes, err := svc.getMarc(resp)
 		if err != nil {
 			log.Printf("ERROR: Unable to get MARC for %s: %s", pid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -223,29 +223,21 @@ type solrResponse struct {
 	Response solrResponseDocuments `json:"response,omitempty"`
 }
 
-func (svc *ServiceContext) getMarc(md metadata, resetCache bool) ([]byte, error) {
-	log.Printf("INFO: Get MARC for %s with resetCache=%t", md.PID, resetCache)
-	if resetCache == false {
-		marc := svc.getCache("marc", md.PID)
-		if marc != nil {
-			log.Printf("INFO: returning cached MARC")
-			return marc, nil
-		}
-	}
-
-	log.Printf("INFO: Get MARC from Sirsi")
+func (svc *ServiceContext) getMarc(md metadata) ([]byte, error) {
+	log.Printf("INFO: get MARC for %s from solr", md.PID)
 	url := ""
 	if md.CatalogKey != "" {
-		log.Printf("INFO: lookup sirsi metadata by catalog key [%s]", md.CatalogKey)
+		log.Printf("INFO: get marc by catalog key [%s]", md.CatalogKey)
 		url = fmt.Sprintf("%s/select?fl=fullrecord&q=id:%s", svc.SolrURL, md.CatalogKey)
 	} else {
 		if md.Barcode != "" {
-			log.Printf("INFO: lookup sirsi metadata by barcode [%s]", md.Barcode)
+			log.Printf("INFO: get marc by barcode [%s]", md.Barcode)
 			url = fmt.Sprintf("%s/select?fl=fullrecord&q=barcode_a:%s", svc.SolrURL, md.Barcode)
 		} else {
 			return nil, fmt.Errorf("sirsi metadata %s has no barcode and no catalog key", md.PID)
 		}
 	}
+
 	respStr, err := svc.getAPIResponse(url)
 	if err != nil {
 		return nil, err
@@ -258,9 +250,7 @@ func (svc *ServiceContext) getMarc(md metadata, resetCache bool) ([]byte, error)
 		return nil, jErr
 	}
 
-	log.Printf("INFO: Cache raw MARC for %s", md.PID)
 	out := []byte(solr.Response.Docs[0].FullRecord)
-	svc.updateCache("marc", md.PID, out)
 	return out, nil
 }
 
@@ -286,7 +276,7 @@ func (svc *ServiceContext) getFixedMARC(md metadata, clearCache bool) ([]byte, e
 	bodyBytes, err := svc.saxonTransform(&payload)
 	if err != nil {
 		log.Printf("WARNING: fixmarc failed with %s. Just transform original marc", err.Error())
-		return svc.getMarc(md, clearCache)
+		return svc.getMarc(md)
 	}
 	// Cache the fixed MARC in the MARC field of the data for this PID
 	log.Printf("INFO: Cache fixedMARC for %s", md.PID)
