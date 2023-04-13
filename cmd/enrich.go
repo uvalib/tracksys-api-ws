@@ -90,6 +90,11 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 		return
 	}
 
+	if len(mdRecs) == 0 {
+		log.Printf("WARNING: a published record for %s was not found", key)
+		c.String(http.StatusNotFound, fmt.Sprintf("%s not found", key))
+	}
+
 	log.Printf("INFO: getMarc for %s to extract use right information", key)
 	mdUseRight := svc.CNE
 	respBytes, err := svc.getMarc(mdRecs[0])
