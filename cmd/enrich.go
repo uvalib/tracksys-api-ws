@@ -75,7 +75,10 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	key := c.Param("key")
 	log.Printf("INFO: get enriched sirsi metadata for catalog key %s", key)
 	var mdRecs []metadata
-	err := svc.GDB.Where("catalog_key=? and date_dl_ingest is not null", key).Order("call_number asc").Find(&mdRecs).Error
+	err := svc.GDB.Debug().Joins("inner join units u on u.metadata_id = metadata.id").
+		Where("catalog_key=? and date_dl_ingest is not null and include_in_dl=?", key, 1).
+		Group("metadata.id").
+		Order("call_number asc").Find(&mdRecs).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) == false {
 			log.Printf("ERROR: sirsi %s not found for enriched metadata: %s", key, err.Error())
