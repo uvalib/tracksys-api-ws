@@ -36,11 +36,16 @@ type controlField struct {
 	Value   string   `xml:",chardata"`
 }
 
-type marcMetadata struct {
+type marcRecord struct {
 	XMLName       xml.Name       `xml:"record"`
 	Leader        string         `xml:"leader"`
 	ControlFields []controlField `xml:"controlfield"`
 	DataFields    []dataField    `xml:"datafield"`
+}
+
+type marcMetadata struct {
+	XMLName xml.Name `xml:"collection"`
+	Record  marcRecord
 }
 
 func (svc *ServiceContext) clearMetadataCache(c *gin.Context) {
@@ -390,12 +395,12 @@ func (svc *ServiceContext) getUseRightFromMARC(marcXML []byte) (*useRight, error
 		return nil, parseErr
 	}
 
-	if len(parsed.ControlFields) == 0 && len(parsed.DataFields) == 0 {
+	if len(parsed.Record.ControlFields) == 0 && len(parsed.Record.DataFields) == 0 {
 		return nil, fmt.Errorf("no matches found in sirsi")
 	}
 
 	useRightName := ""
-	for _, df := range parsed.DataFields {
+	for _, df := range parsed.Record.DataFields {
 		if df.Tag == "856" {
 			// use rights are held in 856 r (uri), t (name/statement), u (item uri)
 			for _, sf := range df.Subfields {

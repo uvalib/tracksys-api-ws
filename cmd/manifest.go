@@ -35,8 +35,13 @@ func (svc *ServiceContext) getManifest(c *gin.Context) {
 		unitID := c.Query("unit")
 		manifest, err := svc.getMetadataManifest(mdInfo.ID, mdInfo.Type, unitID)
 		if err != nil {
-			log.Printf("ERROR: Unable to get manifest for metadata %s: %s", pid, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
+			if err.Error() == "no masterfiles found" {
+				log.Printf("WARNING: no masterfiles found for metadata %s", pid)
+				c.String(http.StatusBadRequest, err.Error())
+			} else {
+				log.Printf("ERROR: Unable to get manifest for metadata %s: %s", pid, err.Error())
+				c.String(http.StatusInternalServerError, err.Error())
+			}
 		} else {
 			c.JSON(http.StatusOK, manifest)
 		}
