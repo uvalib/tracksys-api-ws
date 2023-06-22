@@ -339,6 +339,10 @@ func (svc *ServiceContext) getUVAMAP(md metadata, clearCache bool) ([]byte, erro
 	payload.Set("source", fmt.Sprintf("%s/metadata/%s?type=mods&nocache=%t", svc.APIURL, md.PID, clearCache))
 	payload.Set("style", fmt.Sprintf("%s/stylesheet/modstouvamap", svc.APIURL))
 
+	// Without PID param, the isShownAt does not appear
+	payload.Set("PID", md.PID)
+	// payload.Set("tracksysMetaID", fmt.Sprintf("%d", md.ID))
+
 	uri, _ := svc.getExemplarThumbURL(md.ID)
 	payload.Set("previewURI", uri)
 	log.Printf("INFO: the previewURI for %s is %s", md.PID, uri)
