@@ -119,6 +119,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	out.PDF = svc.PDFServiceURL
 	out.Items = make([]enrichData, 0)
 
+	log.Printf("INFO: %d metadata records are associated with %s", len(mdRecs), key)
 	for _, md := range mdRecs {
 		out.Collection = md.CollectionFacet
 		var total int64
