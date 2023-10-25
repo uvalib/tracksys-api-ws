@@ -106,26 +106,21 @@ func (svc *ServiceContext) getMetadata(c *gin.Context) {
 	// Simple request for brief metadata on this item
 	if mdType == "brief" {
 		type jsonOut struct {
-			PID             string `json:"pid"`
-			Title           string `json:"title"`
-			CallNumber      string `json:"callNumber,omitempty"`
-			CatalogKey      string `json:"catalogKey,omitempty"`
-			Creator         string `json:"creator,omitempty"`
-			RightsURI       string `json:"rights"`
-			RightsStatement string `json:"rightsStatement"`
-			ExemplarURL     string `json:"exemplar"`
+			PID         string `json:"pid"`
+			Title       string `json:"title"`
+			CallNumber  string `json:"callNumber,omitempty"`
+			CatalogKey  string `json:"catalogKey,omitempty"`
+			Creator     string `json:"creator,omitempty"`
+			ExemplarURL string `json:"exemplar"`
 		}
 		out := jsonOut{PID: resp.PID, Title: resp.Title, CallNumber: resp.CallNumber,
-			CatalogKey: resp.CatalogKey, Creator: resp.CreatorName,
-			RightsURI: svc.CNE.URI} // FIXME use a real vlue
+			CatalogKey: resp.CatalogKey, Creator: resp.CreatorName}
 
 		// exemplar is only required if an item is published. Many items will not have an exemplar set
 		out.ExemplarURL, err = svc.getExemplarThumbURL(resp.ID)
 		if err != nil {
 			log.Printf("WARNING: brief metadata for %s is missing an exemplar: %s", pid, err)
 		}
-		rs := "Find more information about permission to use the library's materials at https://www.library.virginia.edu/policies/use-of-materials."
-		out.RightsStatement = fmt.Sprintf("%s\n%s", svc.CNE.Statement, rs) // FIXME use real value
 		log.Printf("INFO: successful request for brief metadata for %s", resp.PID)
 		c.JSON(http.StatusOK, out)
 		return

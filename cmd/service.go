@@ -171,14 +171,16 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
 	log.Printf("INFO: get thumb url for metadata id %d", mdID)
 	exemplarURL := ""
 	var mf masterFile
-	mfResp := svc.GDB.Preload("ImageTechMeta").Where("metadata_id=? and exemplar=1", mdID).First(&mf)
+	mfResp := svc.GDB.Joins("ImageTechMeta").Where("metadata_id=? and exemplar=1", mdID).First(&mf)
 	if mfResp.Error != nil {
 		if errors.Is(mfResp.Error, gorm.ErrRecordNotFound) == false {
 			return "", mfResp.Error
 		}
 		log.Printf("INFO: no exemplar set for metadata id %d; choosing first digital collection masterfile", mdID)
-		mfResp = svc.GDB.Joins("inner join units u on u.id=master_files.unit_id").
-			Where("master_files.metadata_id=? AND u.intended_use_id=?", mdID, 110).
+		mfResp = svc.GDB.Debug().Joins("inner join units u on u.id=master_files.unit_id").
+			Joins("ImageTechMeta").
+			Where("master_files.metadata_id=?").
+			Where("(u.intended_use_id=? || (u.include_in_dl=? && u.date_dl_deliverables_ready is not null))", mdID, 110, 1).
 			Order("filename asc").First(&mf)
 		if mfResp.Error != nil {
 			if errors.Is(mfResp.Error, gorm.ErrRecordNotFound) == false {
