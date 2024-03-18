@@ -23,6 +23,7 @@ type pidSummary struct {
 	Barcode      string     `json:"barcode,omitempty"`
 	CallNumber   string     `json:"call_number,omitempty"`
 	CatalogKey   string     `json:"catalog_key,omitempty"`
+	HasAdvisory  bool       `json:"advisory"`
 	ocrSummary
 }
 
@@ -37,6 +38,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 		out := pidSummary{ID: md.ID, PID: pid, Title: md.Title, Availability: "private", Type: "sirsi_metadata"}
 		if md.Type == "XmlMetadata" {
 			out.Type = "xml_metadata"
+			out.HasAdvisory = strings.Contains(md.DescMetadata, "Content advice")
 		} else if md.Type == "ExternalMetadata" {
 			out.Type = "external_metadata"
 		}

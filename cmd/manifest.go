@@ -20,6 +20,7 @@ type manifestData struct {
 	Description string     `json:"description,omitempty"`
 	TextSource  int64      `json:"text_source,omitempty"`
 	Orientation string     `json:"orientation"`
+	Exemplar    bool       `json:"exemplar"`
 	ClonedFrom  *cloneData `json:"cloned_from,omitempty"`
 }
 
@@ -117,7 +118,7 @@ func (svc *ServiceContext) generateManifest(masterFiles *[]masterFile) (*[]manif
 	for _, mf := range *masterFiles {
 
 		item := manifestData{ID: mf.ID, PID: mf.PID, Filename: mf.Filename,
-			Title: mf.Title, Description: mf.Description,
+			Title: mf.Title, Description: mf.Description, Exemplar: mf.Exemplar,
 			Width: mf.ImageTechMeta.Width, Height: mf.ImageTechMeta.Height, Orientation: "normal"}
 		if mf.TextSource.Valid {
 			item.TextSource = mf.TextSource.Int64

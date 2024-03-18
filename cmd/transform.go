@@ -102,7 +102,7 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 	defer xslFile.Close()
 	_, copyErr := io.Copy(xslFile, uploadFile)
 	if copyErr != nil {
-		log.Printf("ERROR: unable to read xsl: %s", err.Error())
+		log.Printf("ERROR: unable to read xsl: %s", copyErr.Error())
 		c.String(http.StatusBadRequest, "xsl is unreadable")
 		return
 	}

@@ -87,7 +87,7 @@ func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
 			Where("metadata.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null and mp.catalog_key is not null and mp.catalog_key != ?", "test").
 			Find(&excludeRecs)
 		if exResp.Error != nil {
-			if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
+			if errors.Is(exResp.Error, gorm.ErrRecordNotFound) == false {
 				log.Printf("ERROR: unable to get collection cat keys: %s", exResp.Error.Error())
 				c.String(http.StatusInternalServerError, exResp.Error.Error())
 				return
