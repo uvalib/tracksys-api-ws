@@ -10,7 +10,7 @@ import (
 )
 
 // Version of the service
-const version = "2.9.1"
+const version = "2.10.0"
 
 func main() {
 	log.Printf("===> TrackSys API service starting up <===")
