@@ -146,7 +146,7 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 	}
 
 	// Global transform is done in a goroutine with the root filename as the key
-	statusKey, err := svc.globalTransform(userID, tgtPID, tmpFileName, comment)
+	statusKey, err := svc.globalTransform(userID, tmpFileName, comment)
 	log.Printf("INFO: global transform started; status key %s", statusKey)
 	c.String(http.StatusOK, statusKey)
 }
@@ -217,7 +217,7 @@ func (svc *ServiceContext) createMetadataVersion(newMD []byte, xmlMD *metadata, 
 	return nil
 }
 
-func (svc *ServiceContext) globalTransform(userID int64, unitPID string, xslName string, comment string) (string, error) {
+func (svc *ServiceContext) globalTransform(userID int64, xslName string, comment string) (string, error) {
 	xformUUID := strings.Split(xslName, ".xsl")[0]
 	statusFileName := fmt.Sprintf("%s.log", xformUUID)
 	statusFilePath := path.Join(svc.WorkDir, statusFileName)
@@ -226,11 +226,11 @@ func (svc *ServiceContext) globalTransform(userID int64, unitPID string, xslName
 		return "", err
 	}
 	log.Printf("INFO: kicking off global transform in goroutine")
-	go svc.globalWorker(userID, unitPID, xslName, comment, logFile)
+	go svc.globalWorker(userID, xslName, comment, logFile)
 	return xformUUID, nil
 }
 
-func (svc *ServiceContext) globalWorker(userID int64, unitPID string, xslName string, comment string, logFile *os.File) {
+func (svc *ServiceContext) globalWorker(userID int64, xslName string, comment string, logFile *os.File) {
 	defer logFile.Close()
 	pageSize := 1000
 	startOffset := 0
