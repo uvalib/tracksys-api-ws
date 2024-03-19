@@ -11,19 +11,19 @@ import (
 )
 
 type pidSummary struct {
-	ID           int64      `json:"id"`
-	PID          string     `json:"pid"`
-	Type         string     `json:"type"`
-	Title        string     `json:"title,omitempty"`
-	Filename     string     `json:"filename,omitempty"`
-	Availability string     `json:"availability_policy,omitempty"`
-	ParentPID    string     `json:"parent_metadata_pid,omitempty"`
-	TextSource   string     `json:"text_source,omitempty"`
-	ClonedFrom   *cloneData `json:"cloned_from,omitempty"`
-	Barcode      string     `json:"barcode,omitempty"`
-	CallNumber   string     `json:"call_number,omitempty"`
-	CatalogKey   string     `json:"catalog_key,omitempty"`
-	HasAdvisory  bool       `json:"advisory"`
+	ID              int64      `json:"id"`
+	PID             string     `json:"pid"`
+	Type            string     `json:"type"`
+	Title           string     `json:"title,omitempty"`
+	Filename        string     `json:"filename,omitempty"`
+	Availability    string     `json:"availability_policy,omitempty"`
+	ParentPID       string     `json:"parent_metadata_pid,omitempty"`
+	TextSource      string     `json:"text_source,omitempty"`
+	ClonedFrom      *cloneData `json:"cloned_from,omitempty"`
+	Barcode         string     `json:"barcode,omitempty"`
+	CallNumber      string     `json:"call_number,omitempty"`
+	CatalogKey      string     `json:"catalog_key,omitempty"`
+	ContentAdvisory string     `json:"advisory,omitempty"`
 	ocrSummary
 }
 
@@ -38,7 +38,16 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 		out := pidSummary{ID: md.ID, PID: pid, Title: md.Title, Availability: "private", Type: "sirsi_metadata"}
 		if md.Type == "XmlMetadata" {
 			out.Type = "xml_metadata"
-			out.HasAdvisory = strings.Contains(md.DescMetadata, "Content advice")
+
+			// advisory example: <abstract type="Content advice">This item may include language or imagery that is offensive, oppressive, harmful, or inappropriate for some contexts.</abstract>
+			advIdx := strings.Index(md.DescMetadata, "Content advice")
+			if advIdx > -1 {
+				clipped := md.DescMetadata[advIdx:]
+				txtIdx := strings.Index(clipped, ">")
+				msg := clipped[txtIdx+1:]
+				endIdx := strings.Index(msg, "<")
+				out.ContentAdvisory = msg[:endIdx]
+			}
 		} else if md.Type == "ExternalMetadata" {
 			out.Type = "external_metadata"
 		}
