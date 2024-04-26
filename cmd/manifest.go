@@ -92,7 +92,7 @@ func (svc *ServiceContext) getMetadataManifest(ID int64, mdType string, unitID s
 	var mfResp *gorm.DB
 	if unitID != "" {
 		log.Printf("INFO: only including masterfiles from unit %s", unitID)
-		mfResp = svc.GDB.Preload("ImageTechMeta").Where("unit_id=?", unitID).Order("filename asc").Find(&out)
+		mfResp = svc.GDB.Preload("ImageTechMeta").Where("unit_id=? and metadata_id=?", unitID, ID).Order("filename asc").Find(&out)
 	} else if mdType == "ExternalMetadata" {
 		log.Printf("INFO: external metadata; including all master files")
 		mfResp = svc.GDB.Preload("ImageTechMeta").Where("metadata_id=?", ID).Order("filename asc").Find(&out)
