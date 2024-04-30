@@ -91,11 +91,44 @@ func (svc *ServiceContext) getMetadataManifest(ID int64, mdType string, unitID s
 	var out []masterFile
 	var mfResp *gorm.DB
 	if unitID != "" {
+		// important: generally, all master files will have the same metadata aas the unit, but there are common
+		// instances where this is not the case. ArchivesSpace and XML metadata records often use only some (or one)
+		/// of images from a unit. to make sure onlh the expected images are included, check both unit and metadata
 		log.Printf("INFO: only including masterfiles from unit %s", unitID)
 		mfResp = svc.GDB.Preload("ImageTechMeta").Where("unit_id=? and metadata_id=?", unitID, ID).Order("filename asc").Find(&out)
 	} else if mdType == "ExternalMetadata" {
-		log.Printf("INFO: external metadata; including all master files")
-		mfResp = svc.GDB.Preload("ImageTechMeta").Where("metadata_id=?", ID).Order("filename asc").Find(&out)
+		// only images from one unit should be included. if there are more, only include images from units that are intended
+		// for digital collection building (110) as these are known to be complete and of the highest quality
+		log.Printf("INFO: external metadata; including all master files from qualified units")
+		var mdUnits []unit
+		err := svc.GDB.Where("metadata_id=?", ID).Find(&mdUnits).Error
+		if err != nil {
+			return nil, err
+		}
+		if len(mdUnits) == 1 {
+			// Only 1 unit present. Assume this is intentional regardless of intended use id and include all images
+			mfResp = svc.GDB.Preload("ImageTechMeta").Where("metadata_id=?", ID).Order("filename asc").Find(&out)
+		} else {
+			if len(mdUnits) == 0 {
+				return nil, fmt.Errorf("metadata %d has no units", ID)
+			}
+			var tgtUnitID int64
+			candidateCnt := 0
+			for _, u := range mdUnits {
+				if u.IntendedUseID == 110 {
+					candidateCnt++
+					tgtUnitID = u.ID
+				}
+
+			}
+			if candidateCnt == 0 {
+				return nil, fmt.Errorf("no suitable units found")
+			}
+			if candidateCnt > 1 {
+				return nil, fmt.Errorf("multiple candidate units found")
+			}
+			mfResp = svc.GDB.Preload("ImageTechMeta").Where("metadata_id=? and unit_id=?", ID, tgtUnitID).Order("filename asc").Find(&out)
+		}
 	} else {
 		log.Printf("INFO: only including masterfiles from units in the DL")
 		mfResp = svc.GDB.Preload("ImageTechMeta").Joins("inner join units u on u.id = master_files.unit_id").

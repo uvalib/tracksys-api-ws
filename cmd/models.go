@@ -71,6 +71,16 @@ type metadata struct {
 	UpdatedAt            sql.NullTime       `json:"updated_at,omitempty"`
 }
 
+type unit struct {
+	ID            int64  `json:"id"`
+	OrderID       int64  `json:"orderID"`
+	MetadataID    int64  `json:"metadataID"`
+	IntendedUseID int64  `json:"intendedUseID"`
+	IncludeInDL   bool   `json:"incudeInDL"`
+	UnitStatus    string `json:"status"`
+	Reorder       bool   `json:"reorder"`
+}
+
 type metadataVersion struct {
 	ID            int64  `json:"id"`
 	MetadataID    int64  `json:"metadata_id"`
