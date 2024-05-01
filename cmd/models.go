@@ -81,15 +81,6 @@ type unit struct {
 	Reorder       bool   `json:"reorder"`
 }
 
-type metadataVersion struct {
-	ID            int64  `json:"id"`
-	MetadataID    int64  `json:"metadata_id"`
-	StaffMemberID int64  `json:"staff_member_id"`
-	DescMetadata  string `json:"desc_metadata"`
-	VersionTag    string `json:"version_tag"`
-	Comment       string `json:"comment"`
-}
-
 type component struct {
 	ID           int64        `json:"id"`
 	PID          string       `gorm:"column:pid" json:"pid"`

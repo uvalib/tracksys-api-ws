@@ -35,7 +35,6 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 	computeID := c.PostForm("user")
 	tgtPID := c.PostForm("pid")
 	mode := c.PostForm("mode")
-	comment := c.PostForm("comment")
 	key := c.PostForm("key")
 
 	if key != svc.Key {
@@ -49,10 +48,6 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 	}
 	if computeID == "" {
 		c.String(http.StatusBadRequest, "user is required")
-		return
-	}
-	if comment == "" && mode != "test" {
-		c.String(http.StatusBadRequest, "comment is required")
 		return
 	}
 	if (mode == "single" || mode == "test") && tgtPID == "" {
@@ -132,9 +127,9 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 			return
 		}
 
-		err = svc.createMetadataVersion(out, xmlMD, tmpFileName, userID, comment)
+		err = svc.updateXMLMetadataRecord(out, xmlMD)
 		if err != nil {
-			log.Printf("ERROR: unable to save metadata %s version: %s", tgtPID, err.Error())
+			log.Printf("ERROR: unable to update metadata %s: %s", tgtPID, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
 			removeTempFile(xslFilePath)
 			return
@@ -146,7 +141,7 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 	}
 
 	// Global transform is done in a goroutine with the root filename as the key
-	statusKey, err := svc.globalTransform(userID, tmpFileName, comment)
+	statusKey, err := svc.globalTransform(tmpFileName)
 	log.Printf("INFO: global transform started; status key %s", statusKey)
 	c.String(http.StatusOK, statusKey)
 }
@@ -192,32 +187,23 @@ func (svc *ServiceContext) applyTransform(mdPID string, xslName string) ([]byte,
 	return xformBytes, nil
 }
 
-func (svc *ServiceContext) createMetadataVersion(newMD []byte, xmlMD *metadata, xslFileName string, userID int64, comment string) error {
+func (svc *ServiceContext) updateXMLMetadataRecord(newMD []byte, xmlMD *metadata) error {
 	if string(newMD) == xmlMD.DescMetadata {
 		log.Printf("INFO: no changes detected in %s after transform", xmlMD.PID)
 		return nil
 	}
-	log.Printf("INFO: creating new metadata version for %s", xmlMD.PID)
-
-	tag := strings.Split(xslFileName, ".")[0]
-	version := metadataVersion{MetadataID: xmlMD.ID, StaffMemberID: userID, VersionTag: tag, DescMetadata: xmlMD.DescMetadata, Comment: comment}
-	dbResp := svc.GDB.Create(&version)
-	if dbResp.Error != nil {
-		return dbResp.Error
-	}
-
+	log.Printf("INFO: updating xml metadata for %s", xmlMD.PID)
 	xmlMD.UpdatedAt.Time = time.Now()
 	xmlMD.UpdatedAt.Valid = true
 	xmlMD.DescMetadata = string(newMD)
-	dbResp = svc.GDB.Model(xmlMD).Select("UpdatedAt", "DescMetadata").Updates(xmlMD)
-	if dbResp.Error != nil {
-		return dbResp.Error
+	err := svc.GDB.Model(xmlMD).Select("UpdatedAt", "DescMetadata").Updates(xmlMD).Error
+	if err != nil {
+		return err
 	}
-
 	return nil
 }
 
-func (svc *ServiceContext) globalTransform(userID int64, xslName string, comment string) (string, error) {
+func (svc *ServiceContext) globalTransform(xslName string) (string, error) {
 	xformUUID := strings.Split(xslName, ".xsl")[0]
 	statusFileName := fmt.Sprintf("%s.log", xformUUID)
 	statusFilePath := path.Join(svc.WorkDir, statusFileName)
@@ -226,11 +212,11 @@ func (svc *ServiceContext) globalTransform(userID int64, xslName string, comment
 		return "", err
 	}
 	log.Printf("INFO: kicking off global transform in goroutine")
-	go svc.globalWorker(userID, xslName, comment, logFile)
+	go svc.globalWorker(xslName, logFile)
 	return xformUUID, nil
 }
 
-func (svc *ServiceContext) globalWorker(userID int64, xslName string, comment string, logFile *os.File) {
+func (svc *ServiceContext) globalWorker(xslName string, logFile *os.File) {
 	defer logFile.Close()
 	pageSize := 1000
 	startOffset := 0
@@ -259,9 +245,9 @@ func (svc *ServiceContext) globalWorker(userID int64, xslName string, comment st
 				return
 			}
 
-			err = svc.createMetadataVersion(newXML, &md, xslName, userID, comment)
+			err = svc.updateXMLMetadataRecord(newXML, &md)
 			if err != nil {
-				log.Printf("ERROR: unable to save metadata %s version: %s", md.PID, err.Error())
+				log.Printf("ERROR: unable to save metadata %s: %s", md.PID, err.Error())
 				logFile.WriteString(fmt.Sprintf("\nERROR: unable to save metadata %s version: %s\n", md.PID, err.Error()))
 				logFile.WriteString("Transform FAILED\n")
 				removeTempFile(xslFilePath)
