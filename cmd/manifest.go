@@ -101,10 +101,13 @@ func (svc *ServiceContext) getMetadataManifest(ID int64, mdType string, unitID s
 		// for digital collection building (110) as these are known to be complete and of the highest quality
 		log.Printf("INFO: external metadata; including all master files from qualified units")
 		var mdUnits []unit
-		err := svc.GDB.Where("metadata_id=?", ID).Find(&mdUnits).Error
+		err := svc.GDB.Debug().Joins("inner join master_files m on m.unit_id = units.id").
+			Select("units.id", "units.metadata_id", "units.intended_use_id").
+			Where("m.metadata_id=?", ID).Group("units.id").Find(&mdUnits).Error
 		if err != nil {
 			return nil, err
 		}
+
 		if len(mdUnits) == 1 {
 			// Only 1 unit present. Assume this is intentional regardless of intended use id and include all images
 			mfResp = svc.GDB.Preload("ImageTechMeta").Where("metadata_id=?", ID).Order("filename asc").Find(&out)
