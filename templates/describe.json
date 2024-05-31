@@ -59,6 +59,12 @@
       },
       {
          "method": "GET",
+         "uri": "/api/catkey/:key",
+         "description": "Get a brief summary for any catalog key",
+         "respone": "JSON"
+      },
+      {
+         "method": "GET",
          "uri": "/api/pid/:pid",
          "description": "Get a brief summary for any PID",
          "respone": "JSON"

@@ -10,7 +10,7 @@ import (
 )
 
 // Version of the service
-const version = "2.11.0"
+const version = "2.12.0"
 
 func main() {
 	log.Printf("===> TrackSys API service starting up <===")
@@ -52,6 +52,7 @@ func main() {
 
 		api.GET("/stylesheet/:id", svc.getStyleSheet)
 
+		api.GET("/catkey/:key", svc.getCatKeySummary)
 		api.GET("/pid/:pid", svc.getPIDSummary)
 		api.GET("/pid/:pid/type", svc.getPIDType)
 		api.GET("/pid/:pid/text", svc.getPIDText)
