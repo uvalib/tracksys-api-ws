@@ -13,44 +13,16 @@ import (
 
 func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 	out := make([]string, 0)
-	var mdRecs []metadata
-	dbResp := svc.GDB.Distinct("metadata.pid").Select("metadata.pid").
-		Joins("inner join metadata mp on metadata.parent_metadata_id = mp.id").
-		Where("metadata.parent_metadata_id > 0 and mp.dpla = 1 and mp.date_dl_ingest is not null and metadata.dpla = 1 and metadata.date_dl_ingest is not null").
-		Order("mp.pid asc").Find(&mdRecs)
-
-	if dbResp.Error != nil {
-		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
-			log.Printf("ERROR: unable to get DPLA collections info: %s", dbResp.Error.Error())
-			c.String(http.StatusInternalServerError, dbResp.Error.Error())
-			return
-		}
-		log.Printf("WARNING: DPLA collections info not found")
+	err := svc.GDB.Debug().Table("metadata").Distinct("pid").Select("pid").
+		Where("dpla = 1 and date_dl_ingest is not null").
+		Order("pid asc").Find(&out).Error
+	if err != nil {
+		log.Printf("ERROR: unable to get DPLA flagged records: %s", err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
 	}
-	for _, r := range mdRecs {
-		out = append(out, r.PID)
-	}
-	log.Printf("INFO: found %d DPLA items in collections", dbResp.RowsAffected)
-
-	// Now get stand-alone DPLA flagged metadata and generate the records
-	dbResp = svc.GDB.Distinct("metadata.pid").Select("metadata.pid").
-		Where("parent_metadata_id = 0 and dpla = 1 and date_dl_ingest is not null").
-		Order("pid asc").Find(&mdRecs)
-	if dbResp.Error != nil {
-		if errors.Is(dbResp.Error, gorm.ErrRecordNotFound) == false {
-			log.Printf("ERROR: unable to get standalone DPLA items: %s", dbResp.Error.Error())
-			c.String(http.StatusInternalServerError, dbResp.Error.Error())
-			return
-		}
-		log.Printf("WARNING: standalone DPLA items not found")
-	}
-	for _, r := range mdRecs {
-		out = append(out, r.PID)
-	}
-	log.Printf("INFO: found %d standalone DPLA items", dbResp.RowsAffected)
-
-	log.Printf("INFO: found %d TOTAL DPLA items", len(out))
-	c.String(http.StatusOK, strings.Join(out, ", "))
+	log.Printf("INFO: found %d DPLA items", len(out))
+	c.String(http.StatusOK, strings.Join(out, ","))
 }
 
 func (svc *ServiceContext) getPublishedVirgo(c *gin.Context) {
