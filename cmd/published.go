@@ -13,7 +13,7 @@ import (
 
 func (svc *ServiceContext) getPublishedDPLA(c *gin.Context) {
 	out := make([]string, 0)
-	err := svc.GDB.Debug().Table("metadata").Distinct("pid").Select("pid").
+	err := svc.GDB.Table("metadata").Distinct("pid").Select("pid").
 		Where("dpla = 1 and date_dl_ingest is not null").
 		Order("pid asc").Find(&out).Error
 	if err != nil {
