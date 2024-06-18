@@ -10995,7 +10995,7 @@
     </xsl:variable>
     <xsl:for-each select="*:extent">
       <xsl:variable name="unit">
-        <xsl:value-of select="replace(normalize-space(@unit), '\W+$', '')"/>
+        <xsl:value-of select="replace(normalize-space(@unit), '\W+$\(\)', '')"/>
       </xsl:variable>
       <field name="physExtent">
         <xsl:value-of select="normalize-space(.)"/>
