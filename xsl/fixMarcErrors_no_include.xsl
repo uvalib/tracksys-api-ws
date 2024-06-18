@@ -9056,8 +9056,10 @@
           <xsl:apply-templates select="@*" mode="pass1"/>
           <xsl:choose>
             <xsl:when test="@code = 'a'">
-              <xsl:value-of
-                select="string-join(../*:subfield[@code = '6'][position() &gt; 1])"/>
+              <xsl:value-of select="
+                if (count(../*:subfield[@code = '6'][position() &gt; 1]) > 0) 
+                then string-join(../*:subfield[@code = '6'][position() &gt; 1], ' ') 
+                else ''"/>
               <xsl:value-of select="concat(' ', .)"/>
             </xsl:when>
             <xsl:otherwise>
