@@ -11000,6 +11000,7 @@
       <field name="physExtent">
         <xsl:value-of select="normalize-space(.)"/>
         <!-- Unless it's already present in $subfieldA, append value of $unit -->
+        <xsl:message select="Regex: '$unit'" />
         <xsl:if test="position() = 1 and not(matches(., $unit, 'i'))">
           <xsl:value-of select="concat(' ', $unit)"/>
         </xsl:if>
