@@ -179,7 +179,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
 
 		log.Printf("INFO: no exemplar set for metadata id %d; choosing first published masterfile", mdID)
 		mfResp = svc.GDB.Joins("inner join units u on u.id=master_files.unit_id").
-			Where("u.metadata_id=?").
+			Where("master_files.metadata_id=?").
 			Where("u.intended_use_id=? OR (u.include_in_dl=? && u.date_dl_deliverables_ready is not null)", mdID, 110, 1).
 			Order("filename asc").First(&mf)
 		if mfResp.Error != nil {
@@ -188,7 +188,7 @@ func (svc *ServiceContext) getExemplarThumbURL(mdID int64) (string, error) {
 			}
 			log.Printf("INFO: no published masterfiles for metadata id %d; choosing first masterfile", mdID)
 			mfResp = svc.GDB.Joins("inner join units u on u.id=master_files.unit_id").
-				Where("u.metadata_id=? and u.reorder=?", mdID, 0).Order("filename asc").First(&mf)
+				Where("master_files.metadata_id=? and u.reorder=?", mdID, 0).Order("filename asc").First(&mf)
 			if mfResp.Error != nil {
 				return "", mfResp.Error
 			}

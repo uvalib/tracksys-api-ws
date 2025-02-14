@@ -75,10 +75,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	key := c.Param("key")
 	log.Printf("INFO: get enriched sirsi metadata for catalog key %s", key)
 	var mdRecs []metadata
-	err := svc.GDB.Debug().Joins("inner join units u on u.metadata_id = metadata.id").
-		Where("catalog_key=? and date_dl_ingest is not null and include_in_dl=?", key, 1).
-		Group("metadata.id").
-		Order("call_number asc").Find(&mdRecs).Error
+	err := svc.GDB.Where("catalog_key=? and date_dl_ingest is not null", key).Order("call_number asc").Find(&mdRecs).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) == false {
 			log.Printf("ERROR: sirsi %s not found for enriched metadata: %s", key, err.Error())
@@ -122,12 +119,6 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 	log.Printf("INFO: %d metadata records are associated with %s", len(mdRecs), key)
 	for _, md := range mdRecs {
 		out.Collection = md.CollectionFacet
-		var total int64
-		cntResp := svc.GDB.Table("units").Where("metadata_id=? and include_in_dl=?", md.ID, 1).Count(&total)
-		if cntResp.Error != nil {
-			log.Printf("INFO: no published units available for %s: %s", key, cntResp.Error.Error())
-			continue
-		}
 
 		log.Printf("INFO: get enrich data for %s belonging to catkey %s", md.PID, key)
 		item := enrichData{PID: md.PID, CallNumber: md.CallNumber, Barcode: md.Barcode, UseURI: mdUseRight.URI}
@@ -137,6 +128,7 @@ func (svc *ServiceContext) getEnrichedSirsiMetadata(c *gin.Context) {
 			continue
 		}
 		item.IIIFManURL = iiifURL
+		log.Printf("INFO: manifest for %s: %s", md.PID, iiifURL)
 
 		// published items are required to have an exemplar
 		item.ExemplarURL, err = svc.getExemplarThumbURL(md.ID)
