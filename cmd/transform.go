@@ -79,7 +79,12 @@ func (svc *ServiceContext) transformXMLMetadata(c *gin.Context) {
 
 	// copy the uploaded XSL file to a working directory so it can be accessed with /api/stylesheet/xsl-filename
 	uploadFile, header, err := c.Request.FormFile("xsl")
-	defer uploadFile.Close()
+	defer func() {
+		if err := uploadFile.Close(); err != nil {
+			log.Printf("ERROR: unable to close upoaded xsl file: %s", err.Error())
+		}
+	}()
+
 	if err != nil {
 		log.Printf("ERROR: unable to get xsl from post: %s", err.Error())
 		c.String(http.StatusBadRequest, "xsl is required")

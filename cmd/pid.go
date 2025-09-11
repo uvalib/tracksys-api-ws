@@ -85,7 +85,8 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	mdResp := svc.GDB.Preload("AvailabilityPolicy").Preload("OCRHint").Where("pid=?", pid).First(&md)
 	if mdResp.Error == nil {
 		out := pidSummary{ID: md.ID, PID: pid, Title: md.Title, Availability: "private", Type: "sirsi_metadata"}
-		if md.Type == "XmlMetadata" {
+		switch md.Type {
+		case "XmlMetadata":
 			out.Type = "xml_metadata"
 
 			// advisory example: <abstract type="Content advice">This item may include language or imagery that is offensive, oppressive, harmful, or inappropriate for some contexts.</abstract>
@@ -97,7 +98,7 @@ func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 				endIdx := strings.Index(msg, "<")
 				out.ContentAdvisory = msg[:endIdx]
 			}
-		} else if md.Type == "ExternalMetadata" {
+		case "ExternalMetadata":
 			out.Type = "external_metadata"
 		}
 		if md.AvailabilityPolicyID > 0 {

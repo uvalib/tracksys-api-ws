@@ -62,9 +62,10 @@ func (svc *ServiceContext) getPIDText(c *gin.Context) {
 	dbResp := svc.GDB.Where("pid=?", pid).Limit(1).Find(&mfResp)
 	if dbResp.Error == nil {
 		out := mfResp.TranscriptionText
-		if txtType == "title" {
+		switch txtType {
+		case "title":
 			out = mfResp.Title
-		} else if txtType == "description" {
+		case "description":
 			out = mfResp.Description
 		}
 		log.Printf("%s text returned for master file %s", txtType, pid)
