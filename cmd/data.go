@@ -16,7 +16,7 @@ type agency struct {
 
 func (svc *ServiceContext) getAgencies(c *gin.Context) {
 	var out []agency
-	if err := svc.GDB.Find(&out).Error; err != nil {
+	if err := svc.GDB.Order("name asc").Find(&out).Error; err != nil {
 		log.Printf("ERROR: unable to get agencies: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
 		return
@@ -50,7 +50,9 @@ type customer struct {
 
 func (svc *ServiceContext) getCustomers(c *gin.Context) {
 	var out []customer
-	q := "select c.*, s.name as academic_status from customers c inner join academic_statuses s on s.id = academic_status_id"
+	q := "select c.*, s.name as academic_status from customers c"
+	q += " inner join academic_statuses s on s.id = academic_status_id"
+	q += " where last_name != '' order by last_name asc"
 	if err := svc.GDB.Raw(q).Scan(&out).Error; err != nil {
 		log.Printf("ERROR: unable to get container types: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
@@ -102,7 +104,7 @@ type staffMember struct {
 
 func (svc *ServiceContext) getStaff(c *gin.Context) {
 	var out []staffMember
-	if err := svc.GDB.Where("is_active=1").Find(&out).Error; err != nil {
+	if err := svc.GDB.Where("is_active=1").Order("last_name asc").Find(&out).Error; err != nil {
 		log.Printf("ERROR: unable to get staff: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
 		return
