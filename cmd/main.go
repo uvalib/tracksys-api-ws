@@ -52,6 +52,12 @@ func main() {
 
 		api.GET("/stylesheet/:id", svc.getStyleSheet)
 
+		api.GET("/agencies", svc.getAgencies)
+		api.GET("/containertypes", svc.getContainerTypes)
+		api.GET("/customers", svc.getCustomers)
+		api.GET("/ocr", svc.getOCRInfo)
+		api.GET("/staff", svc.getStaff)
+
 		api.GET("/catkey/:key", svc.getCatKeySummary)
 		api.GET("/pid/:pid", svc.getPIDSummary)
 		api.GET("/pid/:pid/type", svc.getPIDType)

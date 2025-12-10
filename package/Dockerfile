@@ -11,6 +11,7 @@ COPY go.mod go.sum Makefile ./
 COPY cmd ./cmd
 COPY xsl ./xsl
 COPY templates ./templates
+COPY data ./data
 RUN make linux
 
 #
@@ -33,7 +34,7 @@ ENV APP_HOME=/tracksys-api-ws
 WORKDIR $APP_HOME
 
 # Create necessary directories
-RUN mkdir -p $APP_HOME/scripts $APP_HOME/bin $APP_HOME/bin/xsl $APP_HOME/bin/templates
+RUN mkdir -p $APP_HOME/scripts $APP_HOME/bin $APP_HOME/bin/xsl $APP_HOME/bin/templates $APP_HOME/bin/data
 RUN chown -R docker $APP_HOME && chgrp -R sse $APP_HOME
 
 # port and run command
@@ -45,6 +46,7 @@ COPY package/scripts/entry.sh $APP_HOME/scripts/entry.sh
 COPY package/data/container_bash_profile /home/docker/.profile
 COPY xsl/* $APP_HOME/bin/xsl/
 COPY templates/* $APP_HOME/bin/templates/
+COPY data/* $APP_HOME/bin/data/
 COPY --from=builder /build/bin/tracksys-api-ws.linux $APP_HOME/bin/tracksys-api-ws
 
 # Ensure permissions are correct
