@@ -65,6 +65,42 @@
       },
       {
          "method": "GET",
+         "uri": "/api/agencies",
+         "description": "Get a list of agencies",
+         "respone": "JSON"
+      },
+       {
+         "method": "GET",
+         "uri": "/api/containertypes",
+         "description": "Get a list of container types",
+         "respone": "JSON"
+      },
+       {
+         "method": "GET",
+         "uri": "/api/customers",
+         "description": "Get a list of customers",
+         "respone": "JSON"
+      },
+       {
+         "method": "GET",
+         "uri": "/api/ocr",
+         "description": "Get a list of ocr hints and languages",
+         "respone": "JSON"
+      },
+       {
+         "method": "GET",
+         "uri": "/api/staff",
+         "description": "Get a list of active staff members",
+         "respone": "JSON"
+      },
+       {
+         "method": "GET",
+         "uri": "/api/staff/:cid",
+         "description": "Get a staff member by computing id",
+         "respone": "JSON"
+      },
+      {
+         "method": "GET",
          "uri": "/api/pid/:pid",
          "description": "Get a brief summary for any PID",
          "respone": "JSON"

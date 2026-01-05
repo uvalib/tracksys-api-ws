@@ -2,11 +2,14 @@ package main
 
 import (
 	"encoding/csv"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type agency struct {
@@ -102,11 +105,27 @@ type staffMember struct {
 	Role        int    `json:"role"`
 }
 
-func (svc *ServiceContext) getStaff(c *gin.Context) {
+func (svc *ServiceContext) getActiveStaff(c *gin.Context) {
 	var out []staffMember
 	if err := svc.GDB.Where("is_active=1").Order("last_name asc").Find(&out).Error; err != nil {
 		log.Printf("ERROR: unable to get staff: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+func (svc *ServiceContext) getStaffMember(c *gin.Context) {
+	cid := c.Param("cid")
+	var out staffMember
+	if err := svc.GDB.Where("computing_id=?", cid).First(&out).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: unable to get staff %s: %s", cid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			log.Printf("INFO: staff %s not found", cid)
+			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", cid))
+		}
 		return
 	}
 	c.JSON(http.StatusOK, out)
