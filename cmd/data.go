@@ -96,6 +96,23 @@ func (svc *ServiceContext) getOCRInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+type intendedUse struct {
+	ID                    int64  `json:"id"`
+	Description           string `json:"description"`
+	DeliverableFormat     string `json:"deliverableFormat"`
+	DeliverableResolution string `json:"deliverableResolution"`
+}
+
+func (svc *ServiceContext) getIntendedUses(c *gin.Context) {
+	var out []intendedUse
+	if err := svc.GDB.Where("is_approved=? AND is_internal_use_only=?", 1, 0).Find(&out).Error; err != nil {
+		log.Printf("ERROR: unable to get intended uses: %s", err.Error())
+		c.String(http.StatusInternalServerError, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
 type staffMember struct {
 	ID          int64  `json:"id"`
 	ComputingID string `json:"computingID"`

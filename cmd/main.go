@@ -58,6 +58,7 @@ func main() {
 		api.GET("/ocr", svc.getOCRInfo)
 		api.GET("/staff", svc.getActiveStaff)
 		api.GET("/staff/:cid", svc.getStaffMember)
+		api.GET("/uses", svc.getIntendedUses)
 
 		api.GET("/catkey/:key", svc.getCatKeySummary)
 		api.GET("/pid/:pid", svc.getPIDSummary)

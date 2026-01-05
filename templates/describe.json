@@ -87,16 +87,22 @@
          "description": "Get a list of ocr hints and languages",
          "respone": "JSON"
       },
-       {
+      {
          "method": "GET",
          "uri": "/api/staff",
          "description": "Get a list of active staff members",
          "respone": "JSON"
       },
-       {
+      {
          "method": "GET",
          "uri": "/api/staff/:cid",
          "description": "Get a staff member by computing id",
+         "respone": "JSON"
+      },
+      {
+         "method": "GET",
+         "uri": "/api/uses",
+         "description": "Get a list of intended uses",
          "respone": "JSON"
       },
       {
