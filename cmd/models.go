@@ -92,12 +92,21 @@ type unit struct {
 	SpecialInstructions string      `json:"-"`
 }
 
+type componentType struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
 type component struct {
-	ID           int64        `json:"id"`
-	PID          string       `gorm:"column:pid" json:"pid"`
-	Title        string       `json:"title"`
-	Label        string       `json:"label"`
-	DateDLIngest sql.NullTime `gorm:"date_dl_ingest" json:"date_dl_ingest"`
+	ID              int64         `json:"id"`
+	PID             string        `gorm:"column:pid" json:"pid"`
+	Title           string        `json:"title"`
+	Label           string        `json:"label"`
+	Description     string        `json:"description"`
+	Date            string        `json:"date"`
+	ComponentTypeID int64         `json:"-"`
+	ComponentType   componentType `gorm:"foreignKey:ComponentTypeID" json:"componentType"`
+	DateDLIngest    sql.NullTime  `gorm:"date_dl_ingest" json:"date_dl_ingest"`
 }
 
 type imageTechMeta struct {

@@ -43,6 +43,23 @@ func (svc *ServiceContext) getContainerTypes(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+func (svc *ServiceContext) getComponent(c *gin.Context) {
+	cid := c.Param("id")
+	var cmp component
+	resp := svc.GDB.Preload("ComponentType").First(&cmp, cid)
+	if resp.Error != nil {
+		if errors.Is(resp.Error, gorm.ErrRecordNotFound) {
+			log.Printf("INFO: component %s not found", cid)
+			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", cid))
+		} else {
+			log.Printf("ERROR: unable to get component %s: %s", cid, resp.Error.Error())
+			c.String(http.StatusInternalServerError, resp.Error.Error())
+		}
+		return
+	}
+	c.JSON(http.StatusOK, cmp)
+}
+
 type customer struct {
 	ID             int64  `json:"id"`
 	FirstName      string `json:"firstName"`
