@@ -107,6 +107,12 @@
       },
       {
          "method": "GET",
+         "uri": "/api/units/:id",
+         "description": "Get brief information on a unit",
+         "respone": "JSON"
+      },
+      {
+         "method": "GET",
          "uri": "/api/pid/:pid",
          "description": "Get a brief summary for any PID",
          "respone": "JSON"

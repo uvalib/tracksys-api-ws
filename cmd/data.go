@@ -96,13 +96,6 @@ func (svc *ServiceContext) getOCRInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-type intendedUse struct {
-	ID                    int64  `json:"id"`
-	Description           string `json:"description"`
-	DeliverableFormat     string `json:"deliverableFormat"`
-	DeliverableResolution string `json:"deliverableResolution"`
-}
-
 func (svc *ServiceContext) getIntendedUses(c *gin.Context) {
 	var out []intendedUse
 	if err := svc.GDB.Where("is_approved=? AND is_internal_use_only=?", 1, 0).Find(&out).Error; err != nil {
@@ -145,5 +138,41 @@ func (svc *ServiceContext) getStaffMember(c *gin.Context) {
 		}
 		return
 	}
+	c.JSON(http.StatusOK, out)
+}
+
+type unitInfo struct {
+	ID                  int64  `json:"id"`
+	MetadataPID         string `json:"metadataPID"`
+	CallNumber          string `json:"callNumber"`
+	CatalogKey          string `json:"catalogKey"`
+	SpecialInstructions string `json:"specialInstructions"`
+	StaffNotes          string `json:"staffNotes"`
+	IntendedUse         string `json:"intendedUse"`
+}
+
+func (svc *ServiceContext) getUnitInfo(c *gin.Context) {
+	uid := c.Param("id")
+	var tgtUnit unit
+	if err := svc.GDB.Preload("Metadata").Preload("IntendedUse").Where("id=?", uid).First(&tgtUnit).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) == false {
+			log.Printf("ERROR: unable to get unit %s: %s", uid, err.Error())
+			c.String(http.StatusInternalServerError, err.Error())
+		} else {
+			log.Printf("INFO: unit %s not found", uid)
+			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", uid))
+		}
+		return
+	}
+	out := unitInfo{
+		ID:                  tgtUnit.ID,
+		MetadataPID:         tgtUnit.Metadata.PID,
+		CallNumber:          tgtUnit.Metadata.CallNumber,
+		CatalogKey:          tgtUnit.Metadata.CatalogKey,
+		IntendedUse:         tgtUnit.IntendedUse.Description,
+		StaffNotes:          tgtUnit.StaffNotes,
+		SpecialInstructions: tgtUnit.SpecialInstructions,
+	}
+
 	c.JSON(http.StatusOK, out)
 }

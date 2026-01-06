@@ -40,6 +40,13 @@ type useRight struct {
 	Modifications  bool   `json:"modifications"`
 }
 
+type intendedUse struct {
+	ID                    int64  `json:"id"`
+	Description           string `json:"description"`
+	DeliverableFormat     string `json:"deliverableFormat"`
+	DeliverableResolution string `json:"deliverableResolution"`
+}
+
 type externalSystem struct {
 	ID        uint   `json:"id"`
 	Name      string `json:"name"`
@@ -72,13 +79,17 @@ type metadata struct {
 }
 
 type unit struct {
-	ID            int64  `json:"id"`
-	OrderID       int64  `json:"orderID"`
-	MetadataID    int64  `json:"metadataID"`
-	IntendedUseID int64  `json:"intendedUseID"`
-	IncludeInDL   bool   `json:"incudeInDL"`
-	UnitStatus    string `json:"status"`
-	Reorder       bool   `json:"reorder"`
+	ID                  int64       `json:"id"`
+	OrderID             int64       `json:"orderID"`
+	MetadataID          int64       `json:"metadataID"`
+	Metadata            metadata    `gorm:"foreignKey:MetadataID" json:"-"`
+	IntendedUseID       int64       `json:"intendedUseID"`
+	IntendedUse         intendedUse `gorm:"foreignKey:IntendedUseID" json:"-"`
+	IncludeInDL         bool        `json:"incudeInDL"`
+	UnitStatus          string      `json:"status"`
+	Reorder             bool        `json:"reorder"`
+	StaffNotes          string      `json:"-"`
+	SpecialInstructions string      `json:"-"`
 }
 
 type component struct {
