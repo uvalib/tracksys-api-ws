@@ -54,6 +54,7 @@ func main() {
 
 		api.GET("/agencies", svc.getAgencies)
 		api.GET("/containertypes", svc.getContainerTypes)
+		api.GET("/containertypes/:id", svc.getContainerType)
 		api.GET("/components/:id", svc.getComponent)
 		api.GET("/customers", svc.getCustomers)
 		api.GET("/ocr", svc.getOCRInfo)
