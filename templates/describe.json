@@ -95,8 +95,8 @@
       },
       {
          "method": "GET",
-         "uri": "/api/staff/:cid",
-         "description": "Get a staff member by computing id",
+         "uri": "/api/staff/lookup?[id=user_id | cid=compute_id]",
+         "description": "Get a staff member by id",
          "respone": "JSON"
       },
       {

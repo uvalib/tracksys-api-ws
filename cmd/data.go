@@ -158,17 +158,39 @@ func (svc *ServiceContext) getActiveStaff(c *gin.Context) {
 }
 
 func (svc *ServiceContext) getStaffMember(c *gin.Context) {
-	cid := c.Param("cid")
-	var out staffMember
-	if err := svc.GDB.Where("computing_id=?", cid).First(&out).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) == false {
-			log.Printf("ERROR: unable to get staff %s: %s", cid, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
-		} else {
-			log.Printf("INFO: staff %s not found", cid)
-			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", cid))
-		}
+	cid := c.Query("cid")
+	id := c.Query("id")
+	if id == "" && cid == "" {
+		log.Printf("INFO: invald staff lookup request; missing id and cid")
+		c.String(http.StatusBadRequest, "param id or cid is required")
 		return
+	}
+
+	var out staffMember
+	if id != "" {
+		log.Printf("INFO: lookup staff by id %s", id)
+		if err := svc.GDB.First(&out, id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) == false {
+				log.Printf("ERROR: unable to get staff %s: %s", id, err.Error())
+				c.String(http.StatusInternalServerError, err.Error())
+			} else {
+				log.Printf("INFO: staff %s not found", id)
+				c.String(http.StatusNotFound, fmt.Sprintf("%s not found", id))
+			}
+			return
+		}
+	} else {
+		log.Printf("INFO: lookup staff by computing id %s", cid)
+		if err := svc.GDB.Where("computing_id=?", cid).First(&out).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) == false {
+				log.Printf("ERROR: unable to get staff %s: %s", cid, err.Error())
+				c.String(http.StatusInternalServerError, err.Error())
+			} else {
+				log.Printf("INFO: staff %s not found", cid)
+				c.String(http.StatusNotFound, fmt.Sprintf("%s not found", cid))
+			}
+			return
+		}
 	}
 	c.JSON(http.StatusOK, out)
 }

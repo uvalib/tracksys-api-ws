@@ -59,7 +59,7 @@ func main() {
 		api.GET("/customers", svc.getCustomers)
 		api.GET("/ocr", svc.getOCRInfo)
 		api.GET("/staff", svc.getActiveStaff)
-		api.GET("/staff/:cid", svc.getStaffMember)
+		api.GET("/staff/lookup", svc.getStaffMember)
 		api.GET("/uses", svc.getIntendedUses)
 		api.GET("/units/:id", svc.getUnitInfo)
 
