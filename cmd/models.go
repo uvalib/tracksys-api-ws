@@ -90,6 +90,7 @@ type unit struct {
 	Reorder             bool        `json:"reorder"`
 	StaffNotes          string      `json:"-"`
 	SpecialInstructions string      `json:"-"`
+	OCRMasterFiles      bool        `gorm:"ocr_master_files" json:"-"`
 }
 
 type componentType struct {

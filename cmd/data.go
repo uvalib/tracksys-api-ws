@@ -197,12 +197,18 @@ func (svc *ServiceContext) getStaffMember(c *gin.Context) {
 
 type unitInfo struct {
 	ID                  int64  `json:"id"`
+	MetadataID          int64  `json:"metadataID"`
 	MetadataPID         string `json:"metadataPID"`
+	Title               string `json:"title"`
 	CallNumber          string `json:"callNumber"`
 	CatalogKey          string `json:"catalogKey"`
 	SpecialInstructions string `json:"specialInstructions"`
 	StaffNotes          string `json:"staffNotes"`
 	IntendedUse         string `json:"intendedUse"`
+	OCRHintID           int64  `json:"ocrHintID"`
+	OCRLanguage         string `json:"ocrLanguage"`
+	OCRMasterFiles      bool   `json:"ocrMasterFiles"`
+	Status              string `json:"status"`
 }
 
 func (svc *ServiceContext) getUnitInfo(c *gin.Context) {
@@ -220,12 +226,18 @@ func (svc *ServiceContext) getUnitInfo(c *gin.Context) {
 	}
 	out := unitInfo{
 		ID:                  tgtUnit.ID,
+		MetadataID:          tgtUnit.MetadataID,
 		MetadataPID:         tgtUnit.Metadata.PID,
+		Title:               tgtUnit.Metadata.Title,
 		CallNumber:          tgtUnit.Metadata.CallNumber,
 		CatalogKey:          tgtUnit.Metadata.CatalogKey,
 		IntendedUse:         tgtUnit.IntendedUse.Description,
 		StaffNotes:          tgtUnit.StaffNotes,
 		SpecialInstructions: tgtUnit.SpecialInstructions,
+		OCRHintID:           int64(tgtUnit.Metadata.OCRHintID),
+		OCRLanguage:         tgtUnit.Metadata.OCRLanguageHint,
+		OCRMasterFiles:      tgtUnit.OCRMasterFiles,
+		Status:              tgtUnit.UnitStatus,
 	}
 
 	c.JSON(http.StatusOK, out)
