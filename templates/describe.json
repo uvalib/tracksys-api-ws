@@ -90,7 +90,7 @@
       {
          "method": "GET",
          "uri": "/api/staff",
-         "description": "Get a list of active staff members",
+         "description": "Get a list of staff members",
          "respone": "JSON"
       },
       {

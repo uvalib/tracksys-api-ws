@@ -145,11 +145,12 @@ type staffMember struct {
 	LastName    string `json:"lastName"`
 	Email       string `json:"email"`
 	Role        int    `json:"role"`
+	IsActive    bool   `json:"active"`
 }
 
-func (svc *ServiceContext) getActiveStaff(c *gin.Context) {
+func (svc *ServiceContext) getStaffMembers(c *gin.Context) {
 	var out []staffMember
-	if err := svc.GDB.Where("is_active=1").Order("last_name asc").Find(&out).Error; err != nil {
+	if err := svc.GDB.Order("last_name asc").Find(&out).Error; err != nil {
 		log.Printf("ERROR: unable to get staff: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
 		return
