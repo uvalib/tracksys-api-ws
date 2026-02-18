@@ -199,7 +199,7 @@ func (svc *ServiceContext) getStaffMember(c *gin.Context) {
 type unitInfo struct {
 	ID                  int64  `json:"id"`
 	MetadataID          int64  `json:"metadataID"`
-	MetadataPID         string `json:"metadataPID"`
+	Pid                 string `json:"metadataPID"`
 	Title               string `json:"title"`
 	CallNumber          string `json:"callNumber"`
 	CatalogKey          string `json:"catalogKey"`
@@ -207,15 +207,26 @@ type unitInfo struct {
 	StaffNotes          string `json:"staffNotes"`
 	IntendedUse         string `json:"intendedUse"`
 	OCRHintID           int64  `json:"ocrHintID"`
-	OCRLanguage         string `json:"ocrLanguage"`
+	OCRLanguageHint     string `json:"ocrLanguage"`
 	OCRMasterFiles      bool   `json:"ocrMasterFiles"`
+	MasterFileCount     int    `json:"masterFileCount"`
 	Status              string `json:"status"`
 }
 
 func (svc *ServiceContext) getUnitInfo(c *gin.Context) {
 	uid := c.Param("id")
-	var tgtUnit unit
-	if err := svc.GDB.Preload("Metadata").Preload("IntendedUse").Where("id=?", uid).First(&tgtUnit).Error; err != nil {
+
+	var tgtUnit unitInfo
+	uQ := "SELECT units.id, units.metadata_id, "
+	uQ += " d.pid, d.title, d.call_number, catalog_key, ocr_hint_id, ocr_language_hint, "
+	uQ += " u.description as intended_use, "
+	uQ += " unit_status,staff_notes, special_instructions, count(m.id) as master_file_count "
+	uQ += " FROM units "
+	uQ += " inner join metadata d on d.id = metadata_id "
+	uQ += " inner join intended_uses u on u.id = intended_use_id "
+	uQ += " left join master_files m on m.unit_id = units.id WHERE units.id=? GROUP BY units.id"
+
+	if err := svc.GDB.Raw(uQ, uid).Scan(&tgtUnit).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) == false {
 			log.Printf("ERROR: unable to get unit %s: %s", uid, err.Error())
 			c.String(http.StatusInternalServerError, err.Error())
@@ -225,21 +236,6 @@ func (svc *ServiceContext) getUnitInfo(c *gin.Context) {
 		}
 		return
 	}
-	out := unitInfo{
-		ID:                  tgtUnit.ID,
-		MetadataID:          tgtUnit.MetadataID,
-		MetadataPID:         tgtUnit.Metadata.PID,
-		Title:               tgtUnit.Metadata.Title,
-		CallNumber:          tgtUnit.Metadata.CallNumber,
-		CatalogKey:          tgtUnit.Metadata.CatalogKey,
-		IntendedUse:         tgtUnit.IntendedUse.Description,
-		StaffNotes:          tgtUnit.StaffNotes,
-		SpecialInstructions: tgtUnit.SpecialInstructions,
-		OCRHintID:           int64(tgtUnit.Metadata.OCRHintID),
-		OCRLanguage:         tgtUnit.Metadata.OCRLanguageHint,
-		OCRMasterFiles:      tgtUnit.OCRMasterFiles,
-		Status:              tgtUnit.UnitStatus,
-	}
 
-	c.JSON(http.StatusOK, out)
+	c.JSON(http.StatusOK, tgtUnit)
 }
