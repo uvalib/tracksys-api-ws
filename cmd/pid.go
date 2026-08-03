@@ -30,9 +30,9 @@ type pidSummary struct {
 
 func (svc *ServiceContext) getCatKeySummary(c *gin.Context) {
 	catKey := c.Param("key")
-	log.Printf("INFO: get summary for %s", catKey)
-	var md metadata
-	err := svc.GDB.Preload("AvailabilityPolicy").Preload("OCRHint").Where("catalog_key=?", catKey).First(&md).Error
+	log.Printf("INFO: get summary for catkey %s", catKey)
+	var mdRecs []metadata
+	err := svc.GDB.Preload("AvailabilityPolicy").Preload("OCRHint").Where("catalog_key=?", catKey).Find(&mdRecs).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) == false {
 			log.Printf("INFO: key %s not found", catKey)
@@ -43,42 +43,47 @@ func (svc *ServiceContext) getCatKeySummary(c *gin.Context) {
 		}
 		return
 	}
-	out := pidSummary{ID: md.ID,
-		PID:          md.PID,
-		Title:        md.Title,
-		Availability: "private",
-		Type:         "sirsi_metadata",
-		CatalogKey:   md.CatalogKey,
-		Barcode:      md.Barcode,
-		CallNumber:   md.CallNumber,
-	}
-	if md.AvailabilityPolicyID > 0 {
-		out.Availability = strings.ToLower(strings.Split(md.AvailabilityPolicy.Name, " ")[0])
-	}
 
-	if md.OCRHintID > 0 {
-		out.OCRHint = md.OCRHint.Name
-		out.OCRCandidate = md.OCRHint.OCRCandidate
-		out.OCRLanguageHint = md.OCRLanguageHint
-	}
-
-	if md.DateDLIngest.Valid {
-		var unitID int64
-		row := svc.GDB.Table("units").Select("id").Where("include_in_dl=1 and metadata_id=?", md.ID).Limit(1).Row()
-		err := row.Scan(&unitID)
-		if err == nil {
-			log.Printf("INFO: lookup text info for metadata %s, unit %d", md.PID, unitID)
-			txtInfo := svc.getTextInfo(unitID, "unit_id")
-			out.HasOCR = txtInfo.HasOCR
-			out.HasTranscription = txtInfo.HasTranscription
+	var out []pidSummary
+	for _, md := range mdRecs {
+		summary := pidSummary{ID: md.ID,
+			PID:          md.PID,
+			Title:        md.Title,
+			Availability: "private",
+			Type:         "sirsi_metadata",
+			CatalogKey:   md.CatalogKey,
+			Barcode:      md.Barcode,
+			CallNumber:   md.CallNumber,
 		}
+		if md.AvailabilityPolicyID > 0 {
+			summary.Availability = strings.ToLower(strings.Split(md.AvailabilityPolicy.Name, " ")[0])
+		}
+
+		if md.OCRHintID > 0 {
+			summary.OCRHint = md.OCRHint.Name
+			summary.OCRCandidate = md.OCRHint.OCRCandidate
+			summary.OCRLanguageHint = md.OCRLanguageHint
+		}
+
+		if md.DateDLIngest.Valid {
+			var unitID int64
+			row := svc.GDB.Table("units").Select("id").Where("include_in_dl=1 and metadata_id=?", md.ID).Limit(1).Row()
+			err := row.Scan(&unitID)
+			if err == nil {
+				log.Printf("INFO: lookup text info for metadata %s, unit %d", md.PID, unitID)
+				txtInfo := svc.getTextInfo(unitID, "unit_id")
+				summary.HasOCR = txtInfo.HasOCR
+				summary.HasTranscription = txtInfo.HasTranscription
+			}
+		}
+		out = append(out, summary)
 	}
 	c.JSON(http.StatusOK, out)
 }
 
 func (svc *ServiceContext) getPIDSummary(c *gin.Context) {
 	pid := c.Param("pid")
-	log.Printf("INFO: get summary for %s", pid)
+	log.Printf("INFO: get summary for pid %s", pid)
 
 	// First try metadata...
 	var md metadata

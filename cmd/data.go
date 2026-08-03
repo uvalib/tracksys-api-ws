@@ -43,22 +43,6 @@ func (svc *ServiceContext) getContainerTypes(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
-func (svc *ServiceContext) getContainerType(c *gin.Context) {
-	cid := c.Param("id")
-	var ct containerType
-	if err := svc.GDB.First(&ct, cid).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			log.Printf("INFO: container type %s not found", cid)
-			c.String(http.StatusNotFound, fmt.Sprintf("%s not found", cid))
-		} else {
-			log.Printf("ERROR: unable to get container type %s: %s", cid, err.Error())
-			c.String(http.StatusInternalServerError, err.Error())
-		}
-		return
-	}
-	c.String(http.StatusOK, ct.Name)
-}
-
 func (svc *ServiceContext) getComponent(c *gin.Context) {
 	cid := c.Param("id")
 	var cmp component
